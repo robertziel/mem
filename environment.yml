@@ -1,0 +1,10 @@
+name: mem
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - ncurses  # required for curses UI in some minimal environments
+  - pip:
+      - rich==13.9.2        # optional: nicer colors if you later extend mem.py
+      - textual==0.79.1     # optional: advanced TUI (you can remove if you stay with curses)
