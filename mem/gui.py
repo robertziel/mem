@@ -1,106 +1,6 @@
-#!/usr/bin/env python3
-import argparse
-import os
-import re
-import sys
-import subprocess
-import shutil
-import datetime
-from pathlib import Path
 import curses
-def get_repo_root():
-    try:
-        root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
-        return Path(root)
-    except Exception:
-        return None
-MEM_HOME_ENV = os.environ.get("MEM_HOME")
-repo_root = get_repo_root()
-if MEM_HOME_ENV:
-    MEM_HOME = Path(MEM_HOME_ENV).expanduser()
-elif repo_root:
-    MEM_HOME = repo_root / "data"
-else:
-    print("Error: No MEM_HOME environment variable set and not in a git repository.")
-    sys.exit(1)
-EDITOR = os.environ.get("EDITOR") or shutil.which("nano") or shutil.which("vi") or "vi"
-def init_dir():
-    MEM_HOME.mkdir(parents=True, exist_ok=True)
-    print(f"Initialized memory dir at {MEM_HOME}")
-def slugify(s):
-    s = s.lower()
-    s = re.sub(r"[^a-z0-9]+", "_", s).strip("_")
-    return s or "note"
-def timestamp():
-    return datetime.datetime.utcnow().strftime("%Y%m%d")
-def find_files(terms):
-    terms = [t.lower() for t in terms]
-    results = []
-    for f in MEM_HOME.glob("*.md"):
-        name = f.stem.lower()
-        if all(t in name for t in terms):
-            results.append(f)
-    return results
-def add_note(args):
-    MEM_HOME.mkdir(exist_ok=True, parents=True)
-    slug = slugify(args.title)
-    date = timestamp()
-    tags = args.tags.replace(",", "_") if args.tags else ""
-    fname = f"{slug}_{tags}_{date}.md" if tags else f"{slug}_{date}.md"
-    path = MEM_HOME / fname
-    if path.exists():
-        print("Note already exists:", path)
-        sys.exit(1)
-    body = args.body or ""
-    content = f"# {args.title}\n\nTags: {args.tags}\n\n{body}\n"
-    with open(path, "w") as f:
-        f.write(content)
-    print("Created:", path)
-def list_notes(args):
-    files = sorted(MEM_HOME.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
-    for f in files[: args.limit]:
-        mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d")
-        print(f"{f.name:60} · {mtime}")
-def search_notes(args):
-    terms = args.query.strip().split()
-    results = find_files(terms)
-    if not results:
-        print("No filename matches, searching inside files...\n")
-        grep_cmd = ["grep", "-iHn", "--color=always", *terms, str(MEM_HOME)]
-        subprocess.call(grep_cmd)
-        return
-    for f in results:
-        print(f"- {f.name}")
-        if args.preview:
-            lines = f.read_text(errors="ignore").splitlines()
-            snippet = "\n".join(lines[:10])
-            print(" " + snippet.replace("\n", "\n ") + "\n")
-def edit_note(args):
-    terms = args.keywords.strip().split()
-    matches = find_files(terms)
-    if not matches:
-        print("No file found for", terms)
-        sys.exit(1)
-    if len(matches) > 1:
-        print("Multiple matches:")
-        for f in matches:
-            print(" ", f.name)
-        sys.exit(1)
-    subprocess.call([EDITOR, str(matches[0])])
-def rm_note(args):
-    terms = args.keywords.strip().split()
-    matches = find_files(terms)
-    if not matches:
-        print("No file found for", terms)
-        sys.exit(1)
-    for f in matches:
-        ans = input(f"Delete {f.name}? [y/N] ")
-        if ans.lower().startswith("y"):
-            f.unlink()
-            print("Deleted", f)
-def open_dir(_args):
-    opener = shutil.which("xdg-open") or "open"
-    subprocess.call([opener, str(MEM_HOME)])
+from .config import MEM_HOME, EDITOR
+
 def search_files(terms):
     """Return list of (Path, title, lines, line_num) sorted by relevance & recency."""
     terms = [t.lower() for t in terms if t.strip()]
@@ -145,6 +45,7 @@ def search_files(terms):
     # Sort: relevance first, then recency
     results.sort(key=lambda x: (-x[4], -x[5]))
     return [(f, title, lines, line_num) for f, title, lines, line_num, _, _ in results[:50]]
+
 def run_ui(_args):
     def main(stdscr):
         # Curses setup
@@ -325,33 +226,3 @@ def run_ui(_args):
                 scroll_pos = 0
                 expanded.clear()
     curses.wrapper(main)
-def main():
-    ap = argparse.ArgumentParser(description="Terminal Markdown memory index")
-    sp = ap.add_subparsers(dest="cmd", required=True)
-    sp.add_parser("init").set_defaults(func=lambda a: init_dir())
-    p_add = sp.add_parser("add")
-    p_add.add_argument("title")
-    p_add.add_argument("-b", "--body", default="")
-    p_add.add_argument("-t", "--tags", default="")
-    p_add.set_defaults(func=add_note)
-    p_list = sp.add_parser("list")
-    p_list.add_argument("-n", "--limit", type=int, default=30)
-    p_list.set_defaults(func=list_notes)
-    p_search = sp.add_parser("search")
-    p_search.add_argument("query")
-    p_search.add_argument("--preview", action="store_true")
-    p_search.set_defaults(func=search_notes)
-    p_edit = sp.add_parser("edit")
-    p_edit.add_argument("keywords")
-    p_edit.set_defaults(func=edit_note)
-    p_rm = sp.add_parser("rm")
-    p_rm.add_argument("keywords")
-    p_rm.set_defaults(func=rm_note)
-    sp.add_parser("open").set_defaults(func=open_dir)
-    p_run = sp.add_parser("run", help="Interactive live search + preview UI")
-    p_run.set_defaults(func=run_ui)
-    args = ap.parse_args()
-    MEM_HOME.mkdir(exist_ok=True)
-    args.func(args)
-if __name__ == "__main__":
-    main()
