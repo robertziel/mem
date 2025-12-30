@@ -1,20 +1,4 @@
 #!/usr/bin/env python3
-"""
-mem.py — Markdown-file knowledge index
-
-Each note = a Markdown file under ~/.mem/ (or MEM_HOME)
-File name includes keywords for easy fuzzy search:
-  e.g. redis_ttl_cache.md
-Supports:
-  mem init
-  mem add "Redis TTL cache" -b "EXPIRE key 60..." -t redis,cache
-  mem search redis ttl
-  mem edit redis ttl
-  mem list
-  mem rm redis ttl
-  mem open redis
-  mem run  ← interactive UI with live search, previews, navigation
-"""
 
 import argparse
 import os
@@ -26,7 +10,23 @@ import datetime
 from pathlib import Path
 import curses
 
-MEM_HOME = Path(os.environ.get("MEM_HOME", "~/.mem")).expanduser()
+def get_repo_root():
+    try:
+        root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
+        return Path(root)
+    except Exception:
+        return None
+
+MEM_HOME_ENV = os.environ.get("MEM_HOME")
+repo_root = get_repo_root()
+if MEM_HOME_ENV:
+    MEM_HOME = Path(MEM_HOME_ENV).expanduser()
+elif repo_root:
+    MEM_HOME = repo_root / "data"
+else:
+    print("Error: No MEM_HOME environment variable set and not in a git repository.")
+    sys.exit(1)
+
 EDITOR = os.environ.get("EDITOR") or shutil.which("nano") or shutil.which("vi") or "vi"
 
 
