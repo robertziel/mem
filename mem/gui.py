@@ -5,7 +5,7 @@ def search_files(terms):
     """Return list of (Path, title, lines, line_num) sorted by relevance & recency."""
     terms = [t.lower() for t in terms if t.strip()]
     results = []
-    for f in MEM_HOME.glob("*.md"):
+    for f in MEM_HOME.rglob("*.md"):
         try:
             stat = f.stat()
             mtime = stat.st_mtime
@@ -13,7 +13,8 @@ def search_files(terms):
             if not text.strip():
                 continue
             text_lower = text.lower()
-            name_lower = f.stem.lower()
+            rel_path = f.relative_to(MEM_HOME).as_posix()
+            name_lower = rel_path.lower()
             match_filename = not terms or all(t in name_lower for t in terms)
             match_content = bool(terms) and not match_filename and all(t in text_lower for t in terms)
             if not terms or match_filename or match_content:
