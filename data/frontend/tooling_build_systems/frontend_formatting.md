@@ -1,0 +1,3 @@
+### Formatting
+
+- Consistent style (Prettier).

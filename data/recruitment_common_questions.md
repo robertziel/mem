@@ -180,3 +180,138 @@ AI/ML
 157. LIME (concept) — `ai_ml/interpretability_fairness_privacy/ai_ml_lime_concept.md`
 158. Fairness metrics — `ai_ml/interpretability_fairness_privacy/ai_ml_fairness_metrics.md`
 159. Differential privacy (idea) — `ai_ml/interpretability_fairness_privacy/ai_ml_differential_privacy_idea.md`
+
+Frontend interviews
+- Web Fundamentals
+160. Client–server — `frontend/web_fundamentals/frontend_client_server.md`
+161. URL — `frontend/web_fundamentals/frontend_url.md`
+162. HTTP — `frontend/web_fundamentals/frontend_http.md`
+163. HTTP methods — `frontend/web_fundamentals/frontend_http_methods.md`
+164. Idempotency — `frontend/web_fundamentals/frontend_idempotency.md`
+165. Headers — `frontend/web_fundamentals/frontend_headers.md`
+166. Status codes — `frontend/web_fundamentals/frontend_status_codes.md`
+167. Content negotiation — `frontend/web_fundamentals/frontend_content_negotiation.md`
+168. MIME type — `frontend/web_fundamentals/frontend_mime_type.md`
+- Browser Architecture
+169. Rendering pipeline — `frontend/browser_architecture/frontend_rendering_pipeline.md`
+170. DOM — `frontend/browser_architecture/frontend_dom.md`
+171. CSSOM — `frontend/browser_architecture/frontend_cssom.md`
+172. Layout (reflow) — `frontend/browser_architecture/frontend_layout_reflow.md`
+173. Paint — `frontend/browser_architecture/frontend_paint.md`
+174. Compositing — `frontend/browser_architecture/frontend_compositing.md`
+175. Reflow vs repaint — `frontend/browser_architecture/frontend_reflow_vs_repaint.md`
+176. Critical rendering path — `frontend/browser_architecture/frontend_critical_rendering_path.md`
+177. Main thread — `frontend/browser_architecture/frontend_main_thread.md`
+- Javascript Core Theory
+178. Execution context — `frontend/javascript_core_theory/frontend_execution_context.md`
+179. Call stack — `frontend/javascript_core_theory/frontend_call_stack.md`
+180. Heap — `frontend/javascript_core_theory/frontend_heap.md`
+181. Hoisting — `frontend/javascript_core_theory/frontend_hoisting.md`
+182. Scope — `frontend/javascript_core_theory/frontend_scope.md`
+183. Closure — `frontend/javascript_core_theory/frontend_closure.md`
+184. this binding — `frontend/javascript_core_theory/frontend_this_binding.md`
+185. Prototype chain — `frontend/javascript_core_theory/frontend_prototype_chain.md`
+186. Event loop — `frontend/javascript_core_theory/frontend_event_loop.md`
+187. Macrotask vs microtask — `frontend/javascript_core_theory/frontend_macrotask_vs_microtask.md`
+188. Promise — `frontend/javascript_core_theory/frontend_promise.md`
+189. Async/await — `frontend/javascript_core_theory/frontend_async_await.md`
+190. Strict mode — `frontend/javascript_core_theory/frontend_strict_mode.md`
+191. Immutability (concept) — `frontend/javascript_core_theory/frontend_immutability_concept.md`
+- Typescript Typing
+192. Structural typing — `frontend/typescript_typing/frontend_structural_typing.md`
+193. Union / intersection types — `frontend/typescript_typing/frontend_union_intersection_types.md`
+194. Generics — `frontend/typescript_typing/frontend_generics.md`
+195. Type narrowing — `frontend/typescript_typing/frontend_type_narrowing.md`
+196. any vs unknown — `frontend/typescript_typing/frontend_any_vs_unknown.md`
+197. Type inference — `frontend/typescript_typing/frontend_type_inference.md`
+- Html Semantics Accessibility
+198. Semantic HTML — `frontend/html_semantics_accessibility/frontend_semantic_html.md`
+199. ARIA — `frontend/html_semantics_accessibility/frontend_aria.md`
+200. Keyboard accessibility — `frontend/html_semantics_accessibility/frontend_keyboard_accessibility.md`
+201. Focus management — `frontend/html_semantics_accessibility/frontend_focus_management.md`
+202. Form semantics — `frontend/html_semantics_accessibility/frontend_form_semantics.md`
+203. WCAG (concept) — `frontend/html_semantics_accessibility/frontend_wcag_concept.md`
+- Css Theory Keys
+204. Specificity — `frontend/css_theory_keys/frontend_specificity.md`
+205. Cascade — `frontend/css_theory_keys/frontend_cascade.md`
+206. Inheritance — `frontend/css_theory_keys/frontend_inheritance.md`
+207. Box model — `frontend/css_theory_keys/frontend_box_model.md`
+208. BFC (Block Formatting Context) — `frontend/css_theory_keys/frontend_bfc_block_formatting_context.md`
+209. Positioning — `frontend/css_theory_keys/frontend_positioning.md`
+210. Flexbox — `frontend/css_theory_keys/frontend_flexbox.md`
+211. Grid — `frontend/css_theory_keys/frontend_grid.md`
+212. Responsive design — `frontend/css_theory_keys/frontend_responsive_design.md`
+213. Units — `frontend/css_theory_keys/frontend_units.md`
+214. Stacking context / z-index — `frontend/css_theory_keys/frontend_stacking_context_z_index.md`
+215. CSS variables — `frontend/css_theory_keys/frontend_css_variables.md`
+216. Animations vs transitions — `frontend/css_theory_keys/frontend_animations_vs_transitions.md`
+217. GPU-friendly properties — `frontend/css_theory_keys/frontend_gpu_friendly_properties.md`
+- Performance Web Vitals
+218. Bundle size — `frontend/performance_web_vitals/frontend_bundle_size.md`
+219. Tree shaking — `frontend/performance_web_vitals/frontend_tree_shaking.md`
+220. Code splitting — `frontend/performance_web_vitals/frontend_code_splitting.md`
+221. Lazy loading — `frontend/performance_web_vitals/frontend_lazy_loading.md`
+222. Caching — `frontend/performance_web_vitals/frontend_caching.md`
+223. Compression — `frontend/performance_web_vitals/frontend_compression.md`
+224. Critical CSS — `frontend/performance_web_vitals/frontend_critical_css.md`
+225. Debounce / throttle — `frontend/performance_web_vitals/frontend_debounce_throttle.md`
+226. Virtualization — `frontend/performance_web_vitals/frontend_virtualization.md`
+227. Core Web Vitals — `frontend/performance_web_vitals/frontend_core_web_vitals.md`
+- Network Security Auth
+228. CORS — `frontend/network_security_auth/frontend_cors.md`
+229. Same-Origin Policy — `frontend/network_security_auth/frontend_same_origin_policy.md`
+230. CSRF — `frontend/network_security_auth/frontend_csrf.md`
+231. XSS — `frontend/network_security_auth/frontend_xss.md`
+232. CSP — `frontend/network_security_auth/frontend_csp.md`
+233. Cookies — `frontend/network_security_auth/frontend_cookies.md`
+234. LocalStorage vs SessionStorage — `frontend/network_security_auth/frontend_localstorage_vs_sessionstorage.md`
+235. JWT — `frontend/network_security_auth/frontend_jwt.md`
+236. OAuth (concept) — `frontend/network_security_auth/frontend_oauth_concept.md`
+237. PKCE — `frontend/network_security_auth/frontend_pkce.md`
+- Frontend Architecture Patterns
+238. SPA vs MPA — `frontend/frontend_architecture_patterns/frontend_spa_vs_mpa.md`
+239. SSR — `frontend/frontend_architecture_patterns/frontend_ssr.md`
+240. SSG — `frontend/frontend_architecture_patterns/frontend_ssg.md`
+241. Hydration — `frontend/frontend_architecture_patterns/frontend_hydration.md`
+242. Islands architecture — `frontend/frontend_architecture_patterns/frontend_islands_architecture.md`
+243. State management — `frontend/frontend_architecture_patterns/frontend_state_management.md`
+244. Controlled vs uncontrolled inputs — `frontend/frontend_architecture_patterns/frontend_controlled_vs_uncontrolled_inputs.md`
+245. Design systems — `frontend/frontend_architecture_patterns/frontend_design_systems.md`
+246. Component composition — `frontend/frontend_architecture_patterns/frontend_component_composition.md`
+- React
+247. JSX — `frontend/react/frontend_jsx.md`
+248. Virtual DOM (concept) — `frontend/react/frontend_virtual_dom_concept.md`
+249. Reconciliation — `frontend/react/frontend_reconciliation.md`
+250. Key prop — `frontend/react/frontend_key_prop.md`
+251. Props vs state — `frontend/react/frontend_props_vs_state.md`
+252. Derived state — `frontend/react/frontend_derived_state.md`
+253. Hooks — `frontend/react/frontend_hooks.md`
+254. useEffect — `frontend/react/frontend_useeffect.md`
+255. useMemo / useCallback — `frontend/react/frontend_usememo_usecallback.md`
+256. Context — `frontend/react/frontend_context.md`
+257. Controlled rerender — `frontend/react/frontend_controlled_rerender.md`
+258. StrictMode — `frontend/react/frontend_strictmode.md`
+259. Concurrent rendering (concept) — `frontend/react/frontend_concurrent_rendering_concept.md`
+- Testing Theory
+260. Unit test — `frontend/testing_theory/frontend_unit_test.md`
+261. Integration test — `frontend/testing_theory/frontend_integration_test.md`
+262. E2E test — `frontend/testing_theory/frontend_e2e_test.md`
+263. Mocking vs stubbing — `frontend/testing_theory/frontend_mocking_vs_stubbing.md`
+264. Test pyramid — `frontend/testing_theory/frontend_test_pyramid.md`
+265. Accessibility testing — `frontend/testing_theory/frontend_accessibility_testing.md`
+- Tooling Build Systems
+266. Bundler — `frontend/tooling_build_systems/frontend_bundler.md`
+267. Transpiler — `frontend/tooling_build_systems/frontend_transpiler.md`
+268. Polyfill — `frontend/tooling_build_systems/frontend_polyfill.md`
+269. Source maps — `frontend/tooling_build_systems/frontend_source_maps.md`
+270. Linting — `frontend/tooling_build_systems/frontend_linting.md`
+271. Formatting — `frontend/tooling_build_systems/frontend_formatting.md`
+272. CI — `frontend/tooling_build_systems/frontend_ci.md`
+- Common Theory Prompts
+273. Browser rendering pipeline prompt — `frontend/common_theory_prompts/frontend_browser_rendering_pipeline_prompt.md`
+274. useEffect vs useLayoutEffect — `frontend/common_theory_prompts/frontend_useeffect_vs_uselayouteffect.md`
+275. CORS vs Same-Origin Policy — `frontend/common_theory_prompts/frontend_cors_vs_same_origin_policy.md`
+276. Prevent XSS/CSRF in SPA — `frontend/common_theory_prompts/frontend_prevent_xss_csrf_in_spa.md`
+277. SSR vs SPA and hydration — `frontend/common_theory_prompts/frontend_ssr_vs_spa_and_hydration.md`
+278. Optimize LCP/INP/CLS — `frontend/common_theory_prompts/frontend_optimize_lcp_inp_cls.md`
+279. Event loop ordering — `frontend/common_theory_prompts/frontend_event_loop_ordering.md`
