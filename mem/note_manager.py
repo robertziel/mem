@@ -22,10 +22,11 @@ def add_note(args):
     print("Created:", path)
 
 def list_notes(args):
-    files = sorted(MEM_HOME.glob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
+    files = sorted(MEM_HOME.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
     for f in files[: args.limit]:
         mtime = datetime.datetime.fromtimestamp(f.stat().st_mtime).strftime("%Y-%m-%d")
-        print(f"{f.name:60} · {mtime}")
+        rel = f.relative_to(MEM_HOME).as_posix()
+        print(f"{rel:60} · {mtime}")
 
 def search_notes(args):
     terms = args.query.strip().split()
@@ -36,7 +37,8 @@ def search_notes(args):
         subprocess.call(grep_cmd)
         return
     for f in results:
-        print(f"- {f.name}")
+        rel = f.relative_to(MEM_HOME).as_posix()
+        print(f"- {rel}")
         if args.preview:
             lines = f.read_text(errors="ignore").splitlines()
             snippet = "\n".join(lines[:10])

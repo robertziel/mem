@@ -18,8 +18,8 @@ def timestamp():
 def find_files(terms):
     terms = [t.lower() for t in terms]
     results = []
-    for f in MEM_HOME.glob("*.md"):
-        name = f.stem.lower()
-        if all(t in name for t in terms):
+    for f in MEM_HOME.rglob("*.md"):
+        rel_name = f.relative_to(MEM_HOME).as_posix().lower()
+        if all(t in rel_name for t in terms):
             results.append(f)
     return results
