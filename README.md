@@ -1,6 +1,6 @@
 # mem
 
-`mem` is a CLI tool for quick Markdown notes on disk. Installs via `mem.py` in an isolated conda env (no sudo).
+`mem` is a lightweight CLI for capturing Markdown notes as plain files on disk, installed via `mem.py` in an isolated conda env (no sudo).
 
 ## Install
 

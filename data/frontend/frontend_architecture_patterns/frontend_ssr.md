@@ -1,3 +1,12 @@
-### SSR
+### SSR (Server-Side Rendering)
 
-- Render HTML on server for faster first paint/SEO.
+SSR renders HTML on the server for fast first paint and SEO.
+
+- **Key point** -> Improves initial load speed.
+- **Key point** -> Can reduce client JS on first render.
+- **Gotcha** -> Requires server runtime and caching strategy.
+
+Example:
+```text
+Request -> server renders HTML -> browser hydrates
+```

@@ -1,5 +1,7 @@
 ### Definition
 
+Short explanation: both are callable blocks, but `lambda` behaves like a strict method and `proc` behaves like a flexible block.
+
 * **lambda**: an anonymous function that behaves like a method
 * **proc**: a callable block that behaves like a Ruby block
 
