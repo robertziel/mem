@@ -80,9 +80,29 @@ Interactive UI:
 mem run  # search/preview/edit
 ```
 
+Web UI:
+
+```bash
+mem server           # start on default port 3030
+mem server -p 8000   # start on custom port
+```
+
+Opens a browser-based interface with the same features as the CLI: list, search, create, edit, and delete notes. Requires `fastapi` and `uvicorn` (included in `environment.yml`).
+
+## Docker (integration tests)
+
+Run the full Playwright E2E test suite:
+
+```bash
+docker compose up test --build --abort-on-container-exit
+```
+
+This spins up 3 containers (API, Vite dev server, Playwright) and runs 24 integration tests.
+
 ## Files
 
-- `mem.py`: Main script
+- `mem/`: Main Python package (CLI, API, service layer)
+- `web/`: React web client (Vite + TypeScript)
 - `install.sh`: Installer
 - `uninstall.sh`: Uninstaller
 

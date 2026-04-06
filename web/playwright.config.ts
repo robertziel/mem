@@ -7,7 +7,7 @@ export default defineConfig({
   reporter: [['html', { outputFolder: './playwright-report' }], ['list']],
   outputDir: './test-results',
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:5173',
+    baseURL: process.env.BASE_URL || 'http://localhost:3030',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },

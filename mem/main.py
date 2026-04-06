@@ -5,6 +5,12 @@ from .utils import init_dir
 from .note_manager import add_note, list_notes, search_notes, edit_note, rm_note, open_dir
 from .gui import run_ui
 
+def _run_server(port):
+    import uvicorn
+    from .api import app
+    print(f"Starting mem web UI on http://localhost:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port)
+
 def main():
     ap = argparse.ArgumentParser(description="Terminal Markdown memory index")
     sp = ap.add_subparsers(dest="cmd", required=True)
@@ -30,6 +36,9 @@ def main():
     sp.add_parser("open").set_defaults(func=open_dir)
     p_run = sp.add_parser("run", help="Interactive live search + preview UI")
     p_run.set_defaults(func=run_ui)
+    p_server = sp.add_parser("server", help="Start web UI server")
+    p_server.add_argument("-p", "--port", type=int, default=3030)
+    p_server.set_defaults(func=lambda a: _run_server(a.port))
     args = ap.parse_args()
     MEM_HOME.mkdir(exist_ok=True)
     args.func(args)

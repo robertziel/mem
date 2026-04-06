@@ -13,7 +13,7 @@ app = FastAPI(title="mem API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:3030"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
