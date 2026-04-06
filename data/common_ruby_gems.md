@@ -27,11 +27,14 @@
 **Errors**
 - exception_notification, better_errors
 
+**Error tracking**
+- Sentry, Honeybadger, Bugsnag
+
 **Tagging**
 - acts-as-taggable-on
 
-**Monitoring**
-- New Relic
+**APM / monitoring**
+- New Relic, Datadog, AppSignal
 
 **Payments**
 - ActiveMerchant

@@ -12,7 +12,13 @@ class User < ApplicationRecord
 end
 ```
 
-**Pros:** keep logic close to data.
-**Cons:** can hide side effects and make flows harder to trace.
+`after_save` vs `after_commit`:
 
-**Rule of thumb:** keep callbacks small and avoid complex business logic in them.
+- `after_save` runs inside the transaction.
+- `after_commit` runs after the transaction is committed.
+- Use `after_commit` for external side effects like emails, jobs, or webhooks.
+
+**Pros:** keep simple persistence-related logic close to data.
+**Cons:** can hide side effects, make flows harder to trace, and create tight model coupling.
+
+**Rule of thumb:** keep callbacks small, avoid complex business logic in them, and prefer service objects for cross-model workflows or external side effects.

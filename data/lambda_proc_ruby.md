@@ -1,9 +1,12 @@
-### Definition
+### Blocks vs lambda vs proc
 
-Short explanation: both are callable blocks, but `lambda` behaves like a strict method and `proc` behaves like a flexible block.
+Short explanation:
 
-* **lambda**: an anonymous function that behaves like a method
-* **proc**: a callable block that behaves like a Ruby block
+- A **block** is Ruby syntax attached to a method call; it is not an object by itself.
+- A **proc** is a callable object that behaves like a Ruby block.
+- A **lambda** is a callable object that behaves more like a strict method.
+
+You can turn a block into an object with `&block` or `to_proc`.
 
 ---
 
@@ -17,6 +20,16 @@ Short explanation: both are callable blocks, but `lambda` behaves like a strict 
 ---
 
 ### Small examples
+
+**Block**
+
+```ruby
+def greet
+  yield "hi"
+end
+
+greet { |msg| puts msg }
+```
 
 **Arguments**
 
@@ -45,4 +58,4 @@ end
 ```
 
 **Rule of thumb:**
-👉 *Use `lambda` for logic, `proc` for block-like control flow.*
+Use `lambda` for method-like logic, `proc` for block-like behavior, and plain blocks when a method naturally yields work.
