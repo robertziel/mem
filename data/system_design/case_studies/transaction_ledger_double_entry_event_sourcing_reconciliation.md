@@ -1,7 +1,9 @@
-### Design a Distributed Transaction Ledger
+### Design a Payment System / Transaction Ledger
 
 **Requirements:**
+- Process payments (charge, refund, transfer) across multiple methods (card, bank, wallet)
 - Record every financial transaction with double-entry bookkeeping
+- Exactly-once processing (no double-charges) via idempotency keys
 - Immutable — no edits, only corrective entries (reversals)
 - Consistent balances even under concurrent writes
 - Reconciliation between internal ledger and external payment providers
@@ -185,6 +187,22 @@ Solution: periodic snapshots
 Without snapshots: replay 10M events → minutes
 With snapshots: load snapshot + replay ~100 events → milliseconds
 ```
+
+**Payment state machine:**
+```
+CREATED -> PROCESSING -> SUCCEEDED -> REFUND_INITIATED -> REFUNDED
+                      -> FAILED
+                      -> REQUIRES_ACTION (3D Secure)
+```
+
+**Handling failures:**
+
+| Scenario | Solution |
+|----------|----------|
+| Provider timeout | Retry with same idempotency key, or query status |
+| Network error after charge | Query provider by idempotency key to check if charged |
+| Double submission | Idempotency key prevents duplicate charges |
+| Partial failure (charged but not recorded) | Reconciliation catches it, auto/manual fix |
 
 **Scaling:**
 - Kafka: partition by account_id (all entries for same account in order)
