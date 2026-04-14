@@ -1,9 +1,11 @@
 import curses
+import subprocess
 from .config import MEM_HOME, EDITOR
+from .utils import classify_search_match, normalize_search_terms
 
 def search_files(terms):
     """Return list of (Path, title, lines, line_num) sorted by relevance & recency."""
-    terms = [t.lower() for t in terms if t.strip()]
+    terms = normalize_search_terms(terms)
     results = []
     for f in MEM_HOME.rglob("*.md"):
         try:
@@ -12,12 +14,9 @@ def search_files(terms):
             text = f.read_text(errors="ignore")
             if not text.strip():
                 continue
-            text_lower = text.lower()
             rel_path = f.relative_to(MEM_HOME).as_posix()
-            name_lower = rel_path.lower()
-            match_filename = not terms or all(t in name_lower for t in terms)
-            match_content = bool(terms) and not match_filename and all(t in text_lower for t in terms)
-            if not terms or match_filename or match_content:
+            match = classify_search_match(rel_path, text, terms)
+            if not terms or match is not None:
                 lines = text.splitlines()
                 # Title
                 title = ""
@@ -31,20 +30,13 @@ def search_files(terms):
                         title = first.strip()
                 if not title:
                     title = f.stem.replace("_", " ").title()
-                # line_num for match
-                line_num = None
-                if terms and match_content:
-                    positions = [text_lower.find(t) for t in terms]
-                    pos_list = [p for p in positions if p >= 0]
-                    if pos_list:
-                        min_pos = min(pos_list)
-                        line_num = text_lower[:min_pos].count("\n")
-                score = 2 if match_filename else 1 if match_content else 0
-                results.append((f, title, lines, line_num, score, mtime))
+                line_num = match["line_num"] if match is not None else None
+                sort_key = match["sort_key"] if match is not None else (0, 0, 0, 0)
+                results.append((f, title, lines, line_num, sort_key, mtime))
         except Exception:
             continue
     # Sort: relevance first, then recency
-    results.sort(key=lambda x: (-x[4], -x[5]))
+    results.sort(key=lambda x: (x[4], x[5]), reverse=True)
     return [(f, title, lines, line_num) for f, title, lines, line_num, _, _ in results[:50]]
 
 def run_ui(_args):

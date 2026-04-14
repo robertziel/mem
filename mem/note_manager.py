@@ -1,5 +1,6 @@
 # note_manager.py
 import sys
+import shutil
 import subprocess
 import datetime
 from .config import MEM_HOME, EDITOR

@@ -1,7 +1,7 @@
 import datetime
 from pathlib import Path
 from .config import MEM_HOME
-from .utils import slugify, timestamp
+from .utils import slugify, timestamp, classify_search_match, normalize_search_terms
 
 
 def _safe_path(relative_path: str) -> Path:
@@ -43,7 +43,7 @@ def list_notes(limit: int = 50) -> list[dict]:
 
 
 def search_notes(query: str) -> list[dict]:
-    terms = [t.lower() for t in query.strip().split() if t.strip()]
+    terms = normalize_search_terms(query)
     if not terms:
         return list_notes(50)
 
@@ -55,29 +55,14 @@ def search_notes(query: str) -> list[dict]:
             text = f.read_text(errors="ignore")
             if not text.strip():
                 continue
-            text_lower = text.lower()
             rel_path = f.relative_to(MEM_HOME).as_posix()
-            name_lower = rel_path.lower()
-
-            match_filename = all(t in name_lower for t in terms)
-            match_content = not match_filename and all(t in text_lower for t in terms)
-
-            if not match_filename and not match_content:
+            match = classify_search_match(rel_path, text, terms)
+            if match is None:
                 continue
 
             lines = text.splitlines()
             title = _extract_title(text, f.stem)
-
-            # Find match line for content matches
-            line_num = None
-            if match_content:
-                positions = [text_lower.find(t) for t in terms]
-                pos_list = [p for p in positions if p >= 0]
-                if pos_list:
-                    min_pos = min(pos_list)
-                    line_num = text_lower[:min_pos].count("\n")
-
-            score = 2 if match_filename else 1
+            line_num = match["line_num"]
 
             # Preview: lines around match
             start = line_num if line_num is not None else 0
@@ -88,7 +73,8 @@ def search_notes(query: str) -> list[dict]:
             results.append({
                 "path": rel_path,
                 "title": title,
-                "score": score,
+                "score": match["score"],
+                "sort_key": match["sort_key"],
                 "preview": preview,
                 "mtime": mtime_str,
                 "mtime_epoch": mtime,
@@ -96,7 +82,9 @@ def search_notes(query: str) -> list[dict]:
         except Exception:
             continue
 
-    results.sort(key=lambda x: (-x["score"], -x["mtime_epoch"]))
+    results.sort(key=lambda x: (x["sort_key"], x["mtime_epoch"]), reverse=True)
+    for item in results:
+        item.pop("sort_key", None)
     return results[:50]
 
 
