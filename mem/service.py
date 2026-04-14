@@ -1,7 +1,13 @@
 import datetime
 from pathlib import Path
 from .config import MEM_HOME
-from .utils import slugify, timestamp, classify_search_match, normalize_search_terms
+from .utils import (
+    slugify,
+    timestamp,
+    classify_search_match,
+    normalize_search_terms,
+    extract_title,
+)
 
 
 def _safe_path(relative_path: str) -> Path:
@@ -10,27 +16,13 @@ def _safe_path(relative_path: str) -> Path:
         raise ValueError("Path traversal not allowed")
     return resolved
 
-
-def _extract_title(text: str, fallback_stem: str) -> str:
-    lines = text.splitlines()
-    if lines:
-        first = lines[0]
-        if first.startswith("# "):
-            return first[2:].strip()
-        elif first.startswith("#"):
-            return first.lstrip("#").strip()
-        elif first.strip():
-            return first.strip()
-    return fallback_stem.replace("_", " ").title()
-
-
 def list_notes(limit: int = 50) -> list[dict]:
     files = sorted(MEM_HOME.rglob("*.md"), key=lambda p: p.stat().st_mtime, reverse=True)
     results = []
     for f in files[:limit]:
         stat = f.stat()
         text = f.read_text(errors="ignore")
-        title = _extract_title(text, f.stem)
+        title = extract_title(text, f.stem)
         rel = f.relative_to(MEM_HOME).as_posix()
         mtime = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d")
         results.append({
@@ -61,7 +53,7 @@ def search_notes(query: str) -> list[dict]:
                 continue
 
             lines = text.splitlines()
-            title = _extract_title(text, f.stem)
+            title = extract_title(text, f.stem)
             line_num = match["line_num"]
 
             # Preview: lines around match
@@ -93,7 +85,7 @@ def get_note(relative_path: str) -> dict:
     if not path.exists() or not path.is_file():
         raise FileNotFoundError(f"Note not found: {relative_path}")
     text = path.read_text(errors="ignore")
-    title = _extract_title(text, path.stem)
+    title = extract_title(text, path.stem)
     stat = path.stat()
     mtime = datetime.datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d")
     return {

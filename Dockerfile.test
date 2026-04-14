@@ -7,9 +7,6 @@ RUN npm ci
 
 COPY web/playwright.config.ts ./
 COPY web/e2e/ ./e2e/
-COPY web/src/ ./src/
 COPY web/tsconfig.json ./
-COPY web/vite.config.ts ./
-COPY web/index.html ./
 
 CMD ["npx", "playwright", "test"]

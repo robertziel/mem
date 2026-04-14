@@ -87,7 +87,23 @@ mem server           # start on default port 3030
 mem server -p 8000   # start on custom port
 ```
 
-Opens a browser-based interface with the same features as the CLI: list, search, create, edit, and delete notes. Requires `fastapi` and `uvicorn` (included in `environment.yml`).
+Build the web bundle first:
+
+```bash
+cd web
+npm install
+npm run build
+```
+
+The Expo scripts now generate fresh seed assets automatically before `start`, `web`, `ios`, `android`, `build`, and `test:e2e`, so the bundled mobile/web snapshot stays aligned with the repo `data/` corpus.
+
+Then `mem server` serves a read-only browser UI that seeds a local database from the repo `data/` corpus on each start. The frontend now runs as one Expo / React Native app across web and mobile:
+
+- Web seeds IndexedDB from `seed.json` / `seed.meta.json`
+- iOS / Android seed SQLite from bundled assets
+- The v1 shared app supports list, search, and view only
+
+The existing FastAPI note endpoints still exist, but the new frontend does not depend on them.
 
 ## Docker (local server)
 
@@ -107,12 +123,63 @@ Run the full Playwright E2E test suite:
 docker compose up test --build --abort-on-container-exit
 ```
 
-This spins up 3 containers (API, Vite dev server, Playwright) and runs 24 integration tests.
+This spins up only the static web export plus the Playwright runner and exercises the read-only local-seeded interface with no note CRUD/search API dependency.
+
+## How Search Works
+
+All interfaces (CLI, TUI, API, Web) share the same core algorithm in `mem/utils.py`.
+
+### Algorithm
+
+1. **Discovery**: `MEM_HOME.rglob("*.md")` — scans all `.md` files recursively
+2. **Term matching**: Every search term must match somewhere (AND logic) or the file is excluded
+3. **Hierarchical scoring**: Each term is matched against the path in priority order:
+
+```
+Path:  ruby/concurrency/gil_gvl_global_vm_lock.md
+       ^^^^            ^^^^^^^^^^^
+       top_dir         filename
+            ^^^^^^^^^^^
+            subdirectory
+```
+
+| Match tier | Weight | Example: searching "ruby gil" |
+|---|---|---|
+| Top-level directory | ×1000 | `ruby/` matches "ruby" → 1000 pts |
+| Subdirectory | ×100 | `concurrency/` checked but "gil" not there |
+| Filename | ×10 | `gil_gvl_...` matches "gil" → 10 pts |
+| Content (full text) | ×1 | Substring search inside file body |
+
+**Score: 1010** — file ranks high because "ruby" hit the directory and "gil" hit the filename.
+
+A term stops at the first tier it matches (directory match won't also count as content match).
+
+### Sorting
+
+Results ranked by: `(top_dir_matches, subdir_matches, filename_matches, content_matches)` descending, then by modification time descending. Maximum 50 results.
+
+### Interface differences
+
+| | CLI `mem search` | CLI `mem edit/rm` | TUI `mem run` | Web UI |
+|---|---|---|---|---|
+| Searches | Filenames → grep fallback | Filenames only | Filenames + content | Filenames + content |
+| Limit | Unlimited | Must match 1 | 50 | 50 |
+| Storage | Filesystem | Filesystem | Filesystem | Browser-local database seeded on startup |
+| Debounce | — | — | Real-time | Deferred local query |
+
+### Key source files
+
+- `mem/utils.py` — `classify_search_match()`, `find_files()`, scoring logic
+- `mem/service.py` — `search_notes()`, `list_notes()`, title extraction
+- `mem/seed_export.py` — exports `seed.json` and `seed.meta.json`
+- `mem/gui.py` — TUI with real-time search
+- `mem/note_manager.py` — CLI commands (filename search + grep fallback)
+- `web/app/search.ts` — shared local ranking logic for web/mobile
 
 ## Files
 
 - `mem/`: Main Python package (CLI, API, service layer)
-- `web/`: React web client (Vite + TypeScript)
+- `web/`: Expo / React Native Web client and bundled seed assets
 - `install.sh`: Installer
 - `uninstall.sh`: Uninstaller
 

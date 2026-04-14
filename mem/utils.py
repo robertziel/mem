@@ -24,6 +24,29 @@ def normalize_search_terms(raw_terms):
 def _split_keywords(value):
     return [part for part in re.split(r"[^a-z0-9]+", value.lower()) if part]
 
+def extract_title(text, fallback_stem):
+    lines = text.splitlines()
+    if lines:
+        first = lines[0]
+        if first.startswith("# "):
+            return first[2:].strip()
+        if first.startswith("#"):
+            return first.lstrip("#").strip()
+        if first.strip():
+            return first.strip()
+    return fallback_stem.replace("_", " ").title()
+
+def get_search_path_parts(relative_path):
+    path = PurePosixPath(relative_path.lower())
+    parts = list(path.parts)
+    filename_stem = path.stem
+    return {
+        "top_dir": parts[0] if len(parts) > 1 else "",
+        "subdirs": parts[1:-1] if len(parts) > 2 else [],
+        "filename_stem": filename_stem,
+        "filename_keywords": _split_keywords(filename_stem),
+    }
+
 def classify_search_match(relative_path, text, raw_terms):
     terms = normalize_search_terms(raw_terms)
     if not terms:
@@ -37,12 +60,11 @@ def classify_search_match(relative_path, text, raw_terms):
             "line_num": None,
         }
 
-    path = PurePosixPath(relative_path.lower())
-    parts = list(path.parts)
-    filename_stem = path.stem
-    filename_keywords = _split_keywords(filename_stem)
-    top_dir = parts[0] if len(parts) > 1 else ""
-    subdirs = parts[1:-1] if len(parts) > 2 else []
+    path_parts = get_search_path_parts(relative_path)
+    top_dir = path_parts["top_dir"]
+    subdirs = path_parts["subdirs"]
+    filename_stem = path_parts["filename_stem"]
+    filename_keywords = path_parts["filename_keywords"]
     text_lower = text.lower()
 
     top_dir_matches = 0

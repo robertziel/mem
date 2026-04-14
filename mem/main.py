@@ -8,6 +8,21 @@ from .gui import run_ui
 def _run_server(port):
     import uvicorn
     from .api import app
+    from .seed_export import write_seed_assets
+    from pathlib import Path
+
+    dist_dir = Path(__file__).resolve().parent.parent / "web" / "dist"
+    index_file = dist_dir / "index.html"
+    if not index_file.exists():
+        raise FileNotFoundError(
+            f"Web build not found at {index_file}. Run `cd web && npm install && npm run build` first."
+        )
+
+    meta = write_seed_assets(dist_dir)
+    print(
+        f"Exported seed assets to {dist_dir} "
+        f"({meta['note_count']} notes, run {meta['server_run_id']})"
+    )
     print(f"Starting mem web UI on http://localhost:{port}")
     uvicorn.run(app, host="0.0.0.0", port=port)
 
