@@ -1,10 +1,10 @@
 # mem
 
-`mem` is a lightweight CLI for capturing Markdown notes as plain files on disk, installed via `mem.py` in an isolated conda env (no sudo).
+`mem` is a lightweight CLI for capturing Markdown notes as plain files on disk, installed into an isolated conda env (no sudo).
 
 ## Install
 
-From dir with `mem.py`:
+From the repo root:
 
 ```bash
 chmod +x install.sh
@@ -88,6 +88,16 @@ mem server -p 8000   # start on custom port
 ```
 
 Opens a browser-based interface with the same features as the CLI: list, search, create, edit, and delete notes. Requires `fastapi` and `uvicorn` (included in `environment.yml`).
+
+## Docker (local server)
+
+Run the installer-based local server:
+
+```bash
+docker compose -f docker-compose.local.yml up --build
+```
+
+This builds a container that runs `./install.sh`, installs the `mem` wrapper, and starts `mem server` on [http://localhost:8040](http://localhost:8040).
 
 ## Docker (integration tests)
 

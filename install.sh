@@ -2,8 +2,11 @@
 # install.sh for mem tool
 # Run this script from the directory containing the 'mem' package directory to install the 'mem' command.
 # This script creates a conda environment if it doesn't exist, and sets up a wrapper script in a user-local bin directory (no sudo required).
+set -euo pipefail
+
 SCRIPT_DIR=$(cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" && pwd)
 ENV_NAME="mem-env"
+ENV_FILE="$SCRIPT_DIR/environment.yml"
 # Detect OS
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 if [[ "$OS" == "linux" ]]; then
@@ -19,10 +22,23 @@ if ! command -v conda &> /dev/null; then
 echo "Conda not found. Please install Miniconda or Anaconda first."
 exit 1
 fi
-# Create conda environment if it doesn't exist
-if ! conda env list | grep -q "^$ENV_NAME"; then
+
+env_exists() {
+conda env list | awk '{print $1}' | grep -qx "$ENV_NAME"
+}
+
+# Create or update conda environment
+if [[ -f "$ENV_FILE" ]]; then
+if env_exists; then
+echo "Updating conda environment $ENV_NAME from environment.yml"
+conda env update -y -n "$ENV_NAME" -f "$ENV_FILE"
+else
+echo "Creating conda environment $ENV_NAME from environment.yml"
+conda env create -y -n "$ENV_NAME" -f "$ENV_FILE"
+fi
+elif ! env_exists; then
 echo "Creating conda environment $ENV_NAME with Python 3.12"
-conda create -y -n $ENV_NAME python=3.12
+conda create -y -n "$ENV_NAME" python=3.12
 fi
 # Create bin directory if it doesn't exist
 mkdir -p "$BIN_DIR" || { echo "fail"; exit 1; }
@@ -31,10 +47,10 @@ WRAPPER="$BIN_DIR/mem"
 cat > "$WRAPPER" << EOF
 #!/bin/bash
 CONDA_BASE=\$(conda info --base)
-source \$CONDA_BASE/etc/profile.d/conda.sh
-conda activate $ENV_NAME
+source "\$CONDA_BASE/etc/profile.d/conda.sh"
+conda activate "$ENV_NAME"
 cd "$SCRIPT_DIR"
-python -m mem.main "\$@"
+exec python -m mem.main "\$@"
 EOF
 if [ $? -ne 0 ]; then
 echo "fail"

@@ -6,7 +6,10 @@ from pathlib import Path
 
 def get_repo_root():
     try:
-        root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode("utf-8").strip()
+        root = subprocess.check_output(
+            ["git", "rev-parse", "--show-toplevel"],
+            stderr=subprocess.DEVNULL,
+        ).decode("utf-8").strip()
         return Path(root)
     except Exception:
         return None
