@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { startTransition, useDeferredValue, useEffect, useState } from 'react';
+import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -21,9 +21,30 @@ import type { NoteListItem, SeedNote } from './app/types';
 type AppState = 'loading' | 'ready' | 'error';
 type CompactPane = 'list' | 'detail';
 
+// iOS system palette
+const iOS = {
+  systemBackground: '#ffffff',
+  secondarySystemBackground: '#f2f2f7',
+  tertiarySystemBackground: '#ffffff',
+  systemGroupedBackground: '#f2f2f7',
+  label: '#000000',
+  secondaryLabel: '#3c3c4399',
+  tertiaryLabel: '#3c3c434d',
+  separator: '#3c3c432d',
+  systemBlue: '#007aff',
+  systemGray: '#8e8e93',
+  systemGray2: '#aeaeb2',
+  systemGray3: '#c7c7cc',
+  systemGray4: '#d1d1d6',
+  systemGray5: '#e5e5ea',
+  systemGray6: '#f2f2f7',
+  systemRed: '#ff3b30',
+};
+
 export default function App() {
   const { width } = useWindowDimensions();
   const isCompact = width < 960;
+  const searchInputRef = useRef<TextInput | null>(null);
   const [appState, setAppState] = useState<AppState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [query, setQuery] = useState('');
@@ -93,8 +114,15 @@ export default function App() {
   const showingDetail = !isCompact || compactPane === 'detail';
   const showingList = !isCompact || compactPane === 'list';
 
-  const goBackToList = () => {
+  const goBackToList = () => setCompactPane('list');
+
+  const cleanSearch = () => {
+    setQuery('');
     setCompactPane('list');
+    // Give the list time to re-render, then focus
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
   };
 
   const handleSelect = (path: string) => {
@@ -104,7 +132,6 @@ export default function App() {
 
   const handleQueryChange = (value: string) => {
     startTransition(() => setQuery(value));
-    // If we were reading a note, typing in search returns to list
     if (isCompact && compactPane === 'detail') {
       setCompactPane('list');
     }
@@ -119,62 +146,92 @@ export default function App() {
           <View style={styles.desktopLayout}>
             <View style={styles.sidebar}>
               <View style={styles.desktopSearchBar}>
-                <TextInput
-                  accessibilityLabel="Search notes"
-                  onChangeText={handleQueryChange}
-                  placeholder="Search"
-                  placeholderTextColor="#8e8e93"
-                  style={styles.searchInput}
-                  value={query}
-                />
+                <SearchField query={query} onChangeText={handleQueryChange} />
               </View>
-              {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect })}
+              {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect, isCompact })}
             </View>
             <View style={styles.detailPane}>
-              {renderDetailPane({ appState, detailLoading, note: selectedNote })}
+              {renderDetailPane({ appState, detailLoading, note: selectedNote, isCompact })}
             </View>
           </View>
         )}
 
-        {/* Compact (mobile) layout: single pane + fixed bottom bar */}
+        {/* Compact (mobile) layout */}
         {isCompact && showingList && (
           <View style={styles.compactPane}>
-            {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect })}
+            {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect, isCompact })}
           </View>
         )}
         {isCompact && showingDetail && (
           <View style={styles.compactPane}>
-            {renderDetailPane({ appState, detailLoading, note: selectedNote })}
+            {renderDetailPane({ appState, detailLoading, note: selectedNote, isCompact })}
           </View>
         )}
 
         {isCompact && (
           <View style={styles.bottomBar}>
-            <TextInput
-              accessibilityLabel="Search notes"
-              onChangeText={handleQueryChange}
-              placeholder="Search"
-              placeholderTextColor="#8e8e93"
-              style={styles.bottomSearchInput}
-              value={query}
-            />
+            <View style={styles.bottomSearchWrap}>
+              <SearchField query={query} onChangeText={handleQueryChange} inputRef={searchInputRef} />
+            </View>
+            <Pressable
+              accessibilityLabel="Clear search and focus"
+              accessibilityRole="button"
+              onPress={cleanSearch}
+              style={({ pressed }: { pressed?: boolean }) => [
+                styles.toolbarButton,
+                pressed ? styles.toolbarButtonPressed : null,
+              ]}
+            >
+              <Text style={styles.toolbarButtonText}>Clean</Text>
+            </Pressable>
             {compactPane === 'detail' && (
               <Pressable
                 accessibilityLabel="Back to list"
                 accessibilityRole="button"
                 onPress={goBackToList}
                 style={({ pressed }: { pressed?: boolean }) => [
-                  styles.backButton,
-                  pressed ? styles.backButtonPressed : null,
+                  styles.toolbarButton,
+                  pressed ? styles.toolbarButtonPressed : null,
                 ]}
               >
-                <Text style={styles.backButtonText}>‹ Back</Text>
+                <Text style={styles.backChevron}>‹</Text>
+                <Text style={styles.toolbarButtonText}>Back</Text>
               </Pressable>
             )}
           </View>
         )}
       </View>
     </SafeAreaView>
+  );
+}
+
+type SearchFieldProps = {
+  query: string;
+  onChangeText: (value: string) => void;
+  inputRef?: React.Ref<TextInput>;
+};
+
+function SearchField({ query, onChangeText, inputRef }: SearchFieldProps) {
+  return (
+    <View style={styles.searchPill}>
+      <Text style={styles.searchGlyph}>⌕</Text>
+      <TextInput
+        ref={inputRef}
+        accessibilityLabel="Search notes"
+        onChangeText={onChangeText}
+        placeholder="Search"
+        placeholderTextColor={iOS.systemGray}
+        style={styles.searchInput}
+        value={query}
+        autoCorrect={false}
+        autoCapitalize="none"
+      />
+      {query.length > 0 ? (
+        <Pressable accessibilityLabel="Clear search" onPress={() => onChangeText('')} style={styles.clearButton}>
+          <Text style={styles.clearGlyph}>✕</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -185,12 +242,13 @@ function renderListPane(args: {
   query: string;
   selectedPath: string | null;
   onSelect: (path: string) => void;
+  isCompact: boolean;
 }) {
-  const { appState, errorMessage, items, query, selectedPath, onSelect } = args;
+  const { appState, errorMessage, items, query, selectedPath, onSelect, isCompact } = args;
   if (appState === 'loading') {
     return (
       <View style={styles.centerState}>
-        <ActivityIndicator color="#8e8e93" size="small" />
+        <ActivityIndicator color={iOS.systemGray} size="small" />
       </View>
     );
   }
@@ -204,9 +262,7 @@ function renderListPane(args: {
   if (items.length === 0) {
     return (
       <View style={styles.centerState}>
-        <Text style={styles.emptyText}>
-          {query.trim() ? 'No matches' : 'No notes'}
-        </Text>
+        <Text style={styles.emptyText}>{query.trim() ? 'No matches' : 'No notes'}</Text>
       </View>
     );
   }
@@ -216,6 +272,7 @@ function renderListPane(args: {
       onSelect={onSelect}
       query={query}
       selectedPath={selectedPath}
+      isCompact={isCompact}
     />
   );
 }
@@ -224,12 +281,13 @@ function renderDetailPane(args: {
   appState: AppState;
   detailLoading: boolean;
   note: SeedNote | null;
+  isCompact: boolean;
 }) {
-  const { appState, detailLoading, note } = args;
+  const { appState, detailLoading, note, isCompact } = args;
   if (detailLoading) {
     return (
       <View style={styles.centerState}>
-        <ActivityIndicator color="#8e8e93" size="small" />
+        <ActivityIndicator color={iOS.systemGray} size="small" />
       </View>
     );
   }
@@ -242,10 +300,9 @@ function renderDetailPane(args: {
   }
   if (!note) return null;
   return (
-    <ScrollView contentContainerStyle={styles.detailScroll}>
+    <ScrollView contentContainerStyle={[styles.detailScroll, isCompact ? styles.detailScrollCompact : null]}>
       <Text style={styles.detailTitle}>{note.title}</Text>
-      <Text style={styles.detailPath}>{note.path}</Text>
-      <Text style={styles.detailDate}>Updated {note.mtime}</Text>
+      <Text style={styles.detailMeta}>Updated {note.mtime}</Text>
       <View style={styles.detailBody}>
         <MarkdownRenderer content={note.content} />
       </View>
@@ -253,13 +310,18 @@ function renderDetailPane(args: {
   );
 }
 
+const iosSystemFont = Platform.select({
+  web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
+  default: undefined,
+}) as string | undefined;
+
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: iOS.systemGroupedBackground,
     flex: 1,
   },
   root: {
-    backgroundColor: '#ffffff',
+    backgroundColor: iOS.systemGroupedBackground,
     flex: 1,
   },
   rootCompact: {
@@ -270,76 +332,113 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    backgroundColor: '#ffffff',
-    borderRightColor: '#e5e5ea',
+    backgroundColor: iOS.systemGroupedBackground,
+    borderRightColor: iOS.separator,
     borderRightWidth: 1,
     minWidth: 320,
     width: 360,
   },
   desktopSearchBar: {
-    borderBottomColor: '#e5e5ea',
-    borderBottomWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
   },
   detailPane: {
-    backgroundColor: '#ffffff',
+    backgroundColor: iOS.systemBackground,
     flex: 1,
   },
   compactPane: {
     flex: 1,
   },
-  searchInput: {
-    backgroundColor: '#f2f2f7',
+
+  // Search pill (iOS style)
+  searchPill: {
+    alignItems: 'center',
+    backgroundColor: iOS.systemGray5,
     borderRadius: 10,
-    color: '#000000',
-    fontSize: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
+  searchGlyph: {
+    color: iOS.systemGray,
+    fontSize: 16,
+  },
+  searchInput: {
+    color: iOS.label,
+    flex: 1,
+    fontFamily: iosSystemFont,
+    fontSize: 16,
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' as unknown as 'solid' } : {}),
+  },
+  clearButton: {
+    alignItems: 'center',
+    backgroundColor: iOS.systemGray3,
+    borderRadius: 9,
+    height: 18,
+    justifyContent: 'center',
+    width: 18,
+  },
+  clearGlyph: {
+    color: iOS.systemBackground,
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
+  },
+
+  // Bottom bar (mobile)
   bottomBar: {
-    backgroundColor: '#f9f9fb',
-    borderTopColor: '#e5e5ea',
+    alignItems: 'center',
+    backgroundColor: 'rgba(249, 249, 251, 0.92)',
+    borderTopColor: iOS.separator,
     borderTopWidth: 1,
     bottom: 0,
     flexDirection: 'row',
     gap: 8,
     left: 0,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingTop: 8,
+    paddingBottom: 12,
     position: 'absolute',
     right: 0,
-    ...(Platform.OS === 'web' ? { paddingBottom: 'max(10px, env(safe-area-inset-bottom))' as unknown as number } : {}),
+    ...(Platform.OS === 'web' ? {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      backdropFilter: 'saturate(180%) blur(20px)' as any,
+      paddingBottom: 'max(12px, env(safe-area-inset-bottom))' as unknown as number,
+    } : {}),
   },
-  bottomSearchInput: {
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e5ea',
-    borderRadius: 10,
-    borderWidth: 1,
-    color: '#000000',
+  bottomSearchWrap: {
     flex: 1,
-    fontSize: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
   },
-  backButton: {
+
+  // Toolbar buttons (iOS blue text style)
+  toolbarButton: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#e5e5ea',
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    flexDirection: 'row',
+    gap: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
   },
-  backButtonPressed: {
-    backgroundColor: '#f2f2f7',
+  toolbarButtonPressed: {
+    opacity: 0.5,
   },
-  backButtonText: {
-    color: '#007aff',
-    fontSize: 15,
+  backChevron: {
+    color: iOS.systemBlue,
+    fontFamily: iosSystemFont,
+    fontSize: 24,
     fontWeight: '500',
+    lineHeight: 24,
+    marginRight: 2,
   },
+  toolbarButtonText: {
+    color: iOS.systemBlue,
+    fontFamily: iosSystemFont,
+    fontSize: 17,
+    fontWeight: '400',
+  },
+
+  // Empty / error / loading states
   centerState: {
     alignItems: 'center',
     flex: 1,
@@ -347,34 +446,41 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: '#8e8e93',
+    color: iOS.systemGray,
+    fontFamily: iosSystemFont,
     fontSize: 15,
   },
   errorText: {
-    color: '#d0021b',
+    color: iOS.systemRed,
+    fontFamily: iosSystemFont,
     fontSize: 15,
     textAlign: 'center',
   },
+
+  // Detail
   detailScroll: {
-    padding: 20,
-    paddingBottom: 120,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 40,
+  },
+  detailScrollCompact: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 100,
   },
   detailTitle: {
-    color: '#000000',
+    color: iOS.label,
+    fontFamily: iosSystemFont,
     fontSize: 28,
     fontWeight: '700',
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
-  detailPath: {
-    color: '#8e8e93',
-    fontSize: 12,
-    marginBottom: 2,
-  },
-  detailDate: {
-    color: '#8e8e93',
-    fontSize: 12,
-    marginBottom: 16,
+  detailMeta: {
+    color: iOS.secondaryLabel,
+    fontFamily: iosSystemFont,
+    fontSize: 13,
+    marginBottom: 18,
   },
   detailBody: {
     marginTop: 4,
