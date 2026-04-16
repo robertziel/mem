@@ -1,0 +1,20 @@
+{
+  "name": "mem-root",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "npm --prefix web test",
+    "test:watch": "npm --prefix web run test:watch",
+    "test:e2e": "npm --prefix web run test:e2e",
+    "test:maestro:ios": "npm --prefix web run test:maestro:ios",
+    "test:maestro:android": "npm --prefix web run test:maestro:android",
+    "test:all": "npm --prefix web run test:all",
+    "dev": "npm --prefix web run dev",
+    "ios": "npm --prefix web run ios",
+    "android": "npm --prefix web run android",
+    "build": "npm --prefix web run build",
+    "seed": "npm --prefix web run seed"
+  }
+}
