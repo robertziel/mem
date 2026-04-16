@@ -25,6 +25,7 @@ import { NoteList } from './app/components/NoteList';
 import { useDebouncedValue } from './app/hooks/useDebouncedValue';
 import { keyboardClearance, useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
+import { stripLastQuerySegment } from './app/search';
 import type { Category, DirectoryView, NoteListItem, SeedNote } from './app/types';
 
 type AppState = 'loading' | 'ready' | 'error';
@@ -218,7 +219,19 @@ function AppContent() {
   const showingDetail = !isCompact || compactPane === 'detail';
   const showingList = !isCompact || compactPane === 'list';
 
-  const goBackToList = () => setCompactPane('list');
+  const goBack = () => {
+    // When a note is open, back always returns to the list pane first
+    // (preserves the current query + directory view). Otherwise walk
+    // up one level in the query path; an empty result lands on the
+    // top-level CategoryList.
+    if (compactPane === 'detail') {
+      setCompactPane('list');
+      return;
+    }
+    const nextQuery = stripLastQuerySegment(query);
+    queryRef.current = nextQuery;
+    setQuery(nextQuery);
+  };
 
   const cleanSearch = () => {
     setQuery('');
@@ -332,12 +345,12 @@ function AppContent() {
             >
               <Text style={styles.textButtonLabel}>Clean</Text>
             </Pressable>
-            {compactPane === 'detail' && (
+            {(compactPane === 'detail' || query.trim() !== '') && (
               <Pressable
                 accessibilityLabel="Back to list"
                 accessibilityRole="button"
                 testID="back-button"
-                onPress={goBackToList}
+                onPress={goBack}
                 style={({ pressed }: { pressed?: boolean }) => [
                   styles.iconButton,
                   pressed ? styles.toolbarButtonPressed : null,

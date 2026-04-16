@@ -1,0 +1,44 @@
+appId: com.anonymous.mem
+name: Back button walks up the directory hierarchy
+---
+- runFlow: common/setup.yaml
+
+# Root (empty query): back button should NOT be present
+- assertNotVisible:
+    id: "back-button"
+- assertVisible:
+    id: "open-category-*"
+
+# Type an exact top-level directory name → directory browser
+- tapOn:
+    id: "search-input"
+- inputText: "ruby"
+- extendedWaitUntil:
+    visible:
+      id: "open-subdir-*"
+    timeout: 3000
+
+# Drill into the first subdir
+- tapOn:
+    index: 0
+    id: "open-subdir-*"
+- extendedWaitUntil:
+    visible:
+      id: "back-button"
+    timeout: 3000
+
+# Press back → return to the single-segment "ruby" view
+- tapOn:
+    id: "back-button"
+- extendedWaitUntil:
+    visible:
+      id: "open-subdir-*"
+    timeout: 3000
+
+# Press back again → root. Category picker reappears, back disappears.
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "open-category-*"
+- assertNotVisible:
+    id: "back-button"

@@ -17,6 +17,25 @@ export function normalizeSearchTerms(query: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Drop the last whitespace-separated segment from a search query. Used
+ * by the Back button in the mobile bottom bar to walk up the directory
+ * hierarchy. Trimming + whitespace-collapsing make the function
+ * idempotent across already-clean or scruffy inputs, and repeated
+ * application reliably reaches the empty-string root.
+ *
+ *   ""                               → ""
+ *   "  "                             → ""
+ *   "ruby"                           → ""
+ *   "ruby metaprogramming"           → "ruby"
+ *   "  ruby   metaprogramming   "    → "ruby"
+ */
+export function stripLastQuerySegment(query: string): string {
+  const segments = query.trim().split(/\s+/).filter(Boolean);
+  if (segments.length <= 1) return '';
+  return segments.slice(0, -1).join(' ');
+}
+
 export function listNotesFromSeed(notes: SeedNote[], limit: number): NoteSummary[] {
   return [...notes]
     .sort((left, right) => right.mtime_epoch - left.mtime_epoch)
