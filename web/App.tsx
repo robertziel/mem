@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
+import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
 import { useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
@@ -379,7 +380,7 @@ function renderDetailPane(args: {
       ]}
     >
       <Text style={styles.detailTitle}>{note.title}</Text>
-      <Text style={styles.detailMeta}>Updated {note.mtime}</Text>
+      <NoteKeywords pathParts={note.path_parts} />
       <View style={styles.detailBody}>
         <MarkdownRenderer content={note.content} />
       </View>

@@ -12,6 +12,9 @@ test.describe('Note List', () => {
   test('opening a seeded note shows its details', async ({ page }) => {
     await openFixture(page, fixtures.dockerCompose);
     await expect(page.getByText(fixtures.dockerCompose.title).last()).toBeVisible();
-    await expect(page.getByText(/Updated \d{4}-\d{2}-\d{2}/)).toBeVisible();
+    // Detail pane shows the path keywords (top dir + subdirs + filename tokens)
+    // instead of an "Updated {date}" stamp.
+    await expect(page.getByText('devops', { exact: true }).last()).toBeVisible();
+    await expect(page.getByText('docker', { exact: true }).last()).toBeVisible();
   });
 });
