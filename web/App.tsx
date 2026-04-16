@@ -4,7 +4,6 @@ import {
   ActivityIndicator,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,12 +11,17 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
 import { useDebouncedValue } from './app/hooks/useDebouncedValue';
-import { useKeyboardInset } from './app/hooks/useKeyboardInset';
+import { keyboardClearance, useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
 import type { NoteListItem, SeedNote } from './app/types';
 
@@ -43,8 +47,17 @@ const palette = {
 };
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const { width } = useWindowDimensions();
   const isCompact = width < 960;
+  const safeAreaInsets = useSafeAreaInsets();
   const searchInputRef = useRef<TextInput | null>(null);
   const [appState, setAppState] = useState<AppState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -55,6 +68,10 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [compactPane, setCompactPane] = useState<CompactPane>('list');
   const keyboardInset = useKeyboardInset();
+  // Lift the bottom bar so it sits FLUSH on top of the iOS keyboard,
+  // subtracting the home-indicator safe-area inset (SafeAreaView already
+  // offsets us by that amount).
+  const bottomBarLift = keyboardClearance(keyboardInset, safeAreaInsets.bottom);
   // Debounce the query: search only runs after the user has been idle
   // for 500 ms. Prevents re-scanning 793 notes on every keystroke.
   const debouncedQuery = useDebouncedValue(query, 500);
@@ -222,7 +239,7 @@ export default function App() {
               selectedPath,
               onSelect: handleSelect,
               isCompact,
-              extraBottomPadding: keyboardInset,
+              extraBottomPadding: bottomBarLift,
             })}
           </View>
         )}
@@ -233,13 +250,13 @@ export default function App() {
               detailLoading,
               note: selectedNote,
               isCompact,
-              extraBottomPadding: keyboardInset,
+              extraBottomPadding: bottomBarLift,
             })}
           </View>
         )}
 
         {isCompact && (
-          <View style={[styles.bottomBar, { bottom: keyboardInset }]}>
+          <View style={[styles.bottomBar, { bottom: bottomBarLift }]}>
             <View style={styles.bottomSearchWrap}>
               <SearchField query={query} onChangeText={handleQueryChange} inputRef={searchInputRef} />
             </View>

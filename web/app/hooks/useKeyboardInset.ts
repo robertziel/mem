@@ -34,3 +34,21 @@ export function useKeyboardInset(): number {
 
   return inset;
 }
+
+/**
+ * How far an absolutely-positioned bottom bar (that lives inside a
+ * SafeAreaView) must be lifted so its bottom edge sits exactly on top
+ * of the software keyboard.
+ *
+ * iOS reports the keyboard frame from the physical bottom of the screen,
+ * so it INCLUDES the home-indicator safe-area inset. Our bottom bar is
+ * already offset by that inset thanks to SafeAreaView, so we subtract
+ * the inset to avoid a visible gap between the bar and the keyboard.
+ *
+ *   keyboardHeight = 0  → bar stays at SafeArea bottom (clearance = 0)
+ *   keyboardHeight > 0  → clearance = max(0, keyboardHeight - safeAreaBottom)
+ */
+export function keyboardClearance(keyboardHeight: number, safeAreaBottom: number): number {
+  if (keyboardHeight <= 0) return 0;
+  return Math.max(0, keyboardHeight - safeAreaBottom);
+}

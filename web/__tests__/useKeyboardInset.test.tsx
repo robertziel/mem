@@ -95,3 +95,32 @@ describe('useKeyboardInset (iOS keyboard awareness)', () => {
     expect(() => (Keyboard as MockKeyboard).__fireShow(400)).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// keyboardClearance() — derives how far to lift a bottom bar that lives
+// inside a SafeAreaView so it sits FLUSH on top of the keyboard, with no
+// gap from the home-indicator safe-area inset.
+// ---------------------------------------------------------------------------
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { keyboardClearance } = require('../app/hooks/useKeyboardInset');
+
+describe('keyboardClearance (safe-area aware)', () => {
+  it('returns 0 when the keyboard is closed regardless of safe-area', () => {
+    expect(keyboardClearance(0, 34)).toBe(0);
+    expect(keyboardClearance(0, 0)).toBe(0);
+  });
+
+  it('subtracts the bottom safe-area inset from the keyboard height', () => {
+    // Typical iPhone with home indicator: keyboard 336, safe-area 34
+    expect(keyboardClearance(336, 34)).toBe(302);
+  });
+
+  it('never returns a negative value (short keyboards on notch-less devices)', () => {
+    expect(keyboardClearance(10, 34)).toBe(0);
+  });
+
+  it('passes the keyboard height through unchanged when there is no safe-area', () => {
+    // iPhone SE, Android, web — no home indicator
+    expect(keyboardClearance(291, 0)).toBe(291);
+  });
+});
