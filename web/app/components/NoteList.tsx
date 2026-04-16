@@ -9,10 +9,10 @@ type NoteListProps = {
   selectedPath: string | null;
 };
 
-export function NoteList({ items, onSelect, query, selectedPath }: NoteListProps) {
+export function NoteList({ items, onSelect, selectedPath }: NoteListProps) {
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {items.map((item) => {
+      {items.map((item, idx) => {
         const selected = item.path === selectedPath;
         return (
           <Pressable
@@ -20,18 +20,22 @@ export function NoteList({ items, onSelect, query, selectedPath }: NoteListProps
             accessibilityRole="button"
             key={item.path}
             onPress={() => onSelect(item.path)}
-            style={[styles.card, selected ? styles.cardSelected : null]}
+            style={({ hovered }: { hovered?: boolean }) => [
+              styles.row,
+              idx > 0 ? styles.rowBorder : null,
+              selected ? styles.rowSelected : null,
+              hovered ? styles.rowHovered : null,
+            ]}
           >
-            <View style={styles.cardHeader}>
-              <Text style={styles.title}>{item.title}</Text>
-              <Text style={styles.date}>{item.mtime}</Text>
-            </View>
-            <Text style={styles.path}>{item.path}</Text>
-            {query.trim() && item.preview ? (
-              <Text numberOfLines={4} style={styles.preview}>
-                {item.preview}
+            <View style={styles.rowContent}>
+              <Text numberOfLines={1} style={styles.title}>
+                {item.title}
               </Text>
-            ) : null}
+              <Text numberOfLines={1} style={styles.path}>
+                {item.path}
+              </Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
           </Pressable>
         );
       })}
@@ -41,46 +45,43 @@ export function NoteList({ items, onSelect, query, selectedPath }: NoteListProps
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 120,
   },
-  card: {
-    backgroundColor: '#fffaf0',
-    borderColor: '#d7cbb6',
-    borderRadius: 18,
-    borderWidth: 1,
-    gap: 6,
-    padding: 16,
-  },
-  cardSelected: {
-    backgroundColor: '#fff2cc',
-    borderColor: '#b07b32',
-  },
-  cardHeader: {
+  row: {
     alignItems: 'center',
+    backgroundColor: '#ffffff',
     flexDirection: 'row',
     gap: 12,
-    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  rowBorder: {
+    borderTopColor: '#e5e5ea',
+    borderTopWidth: 1,
+  },
+  rowSelected: {
+    backgroundColor: '#f2f2f7',
+  },
+  rowHovered: {
+    backgroundColor: '#f9f9fb',
+  },
+  rowContent: {
+    flex: 1,
+    gap: 2,
   },
   title: {
-    color: '#102926',
-    flex: 1,
+    color: '#000000',
     fontSize: 16,
-    fontWeight: '700',
-  },
-  date: {
-    color: '#7f6d4d',
-    fontSize: 12,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   path: {
-    color: '#7b5b2a',
+    color: '#8e8e93',
     fontSize: 12,
   },
-  preview: {
-    color: '#304744',
-    fontSize: 13,
-    lineHeight: 20,
+  chevron: {
+    color: '#c7c7cc',
+    fontSize: 20,
+    fontWeight: '400',
   },
 });
