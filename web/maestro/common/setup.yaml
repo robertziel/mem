@@ -1,0 +1,6 @@
+appId: com.anonymous.mem
+---
+# Shared launch step. Import via:
+#   - runFlow: common/setup.yaml
+- launchApp:
+    clearState: true

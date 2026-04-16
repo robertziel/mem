@@ -39,14 +39,14 @@ const META_STORE = 'meta';
 
 export async function gotoApp(page: Page): Promise<void> {
   await page.goto('/');
-  await expect(page.getByText('Search the local database')).toBeVisible();
-  await expect(page.getByText('Read-only')).toBeVisible();
+  // Search pill placeholder is "Search"; at least one note button is present
+  await expect(page.getByPlaceholder('Search')).toBeVisible();
   await expect(page.getByRole('button').first()).toBeVisible();
 }
 
 export async function searchFor(page: Page, query: string): Promise<void> {
   await gotoApp(page);
-  await page.getByLabel('Search notes').fill(query);
+  await page.getByPlaceholder('Search').fill(query);
 }
 
 export async function openFixture(

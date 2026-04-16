@@ -1,0 +1,27 @@
+appId: com.anonymous.mem
+name: Open 50 notes sequentially (sampled smoke)
+---
+- runFlow: common/setup.yaml
+# Open the Nth note, assert detail renders, go back, repeat.
+# Full 793-note coverage lives in the Jest all-notes-smoke test;
+# this 50-note loop verifies the native navigation lifecycle does
+# not leak or crash.
+- repeat:
+    times: 50
+    commands:
+      - tapOn:
+          index: 0
+          id: "open-note-*"
+      - extendedWaitUntil:
+          visible: "Updated"
+          timeout: 5000
+      - tapOn:
+          id: "back-button"
+      - extendedWaitUntil:
+          visible:
+            id: "open-note-*"
+          timeout: 3000
+      # scroll the list by a row so the next iteration taps a fresh note
+      - swipe:
+          direction: UP
+          duration: 250

@@ -1,0 +1,11 @@
+appId: com.anonymous.mem
+name: List view loads
+---
+- runFlow: common/setup.yaml
+# Wait for the first note row to appear in the list
+- extendedWaitUntil:
+    visible:
+      id: "open-note-*"
+    timeout: 10000
+- assertVisible:
+    id: "open-note-*"

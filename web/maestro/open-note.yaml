@@ -1,0 +1,13 @@
+appId: com.anonymous.mem
+name: Open a note shows its content
+---
+- runFlow: common/setup.yaml
+# Tap the first row in the list
+- tapOn:
+    index: 0
+    id: "open-note-*"
+# Detail view presents the Updated stamp
+- extendedWaitUntil:
+    visible: "Updated"
+    timeout: 5000
+- assertVisible: "Updated"

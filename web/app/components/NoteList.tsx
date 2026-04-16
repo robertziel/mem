@@ -79,6 +79,7 @@ export function NoteList({ items, onSelect, selectedPath, isCompact, query }: No
             <Pressable
               accessibilityLabel={`Open ${item.title}`}
               accessibilityRole="button"
+              testID={`open-note-${idx}`}
               key={item.path}
               onPress={() => onSelect(item.path)}
               style={({ hovered, pressed }: { hovered?: boolean; pressed?: boolean }) => [

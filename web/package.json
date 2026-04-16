@@ -10,14 +10,19 @@
     "preandroid": "npm run seed",
     "preios": "npm run seed",
     "prebuild": "npm run seed",
-    "pretest:e2e": "npm run seed",
     "start": "expo start",
     "dev": "expo start --web",
     "web": "expo start --web",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "build": "expo export --platform web --output-dir dist",
-    "test:e2e": "playwright test"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "pretest:e2e": "npm run seed",
+    "test:e2e": "playwright test",
+    "test:maestro:ios": "maestro test maestro",
+    "test:maestro:android": "maestro test maestro",
+    "test:all": "npm test && npm run test:e2e"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -29,7 +34,6 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-markdown": "^10.1.0",
-    "react-native": "0.81.5",
     "react-native-markdown-display": "^7.0.2",
     "react-native-web": "^0.21.0",
     "rehype-highlight": "^7.0.2",
@@ -37,8 +41,18 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/react-native": "^13.3.3",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.12.2",
     "@types/react": "~19.1.0",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
+    "jest-expo": "^55.0.16",
+    "react-native": "^0.81.5",
+    "react-test-renderer": "^19.1.0",
+    "ts-jest": "^29.4.9",
     "typescript": "~5.9.2"
   }
 }

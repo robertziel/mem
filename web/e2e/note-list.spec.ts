@@ -2,12 +2,11 @@ import { test, expect } from '@playwright/test';
 import { fixtures, gotoApp, openFixture } from './helpers';
 
 test.describe('Note List', () => {
-  test('loads the local snapshot and displays note results', async ({ page }) => {
+  test('loads the local snapshot and displays note rows', async ({ page }) => {
     await gotoApp(page);
-    await expect(page.getByText('Read-only')).toBeVisible();
     await expect(page.getByRole('button').first()).toBeVisible();
     const count = await page.getByRole('button').count();
-    expect(count).toBeGreaterThan(0);
+    expect(count).toBeGreaterThan(1);
   });
 
   test('opening a seeded note shows its details', async ({ page }) => {

@@ -1,0 +1,25 @@
+appId: com.anonymous.mem
+name: Back and Clean toolbar buttons
+---
+- runFlow: common/setup.yaml
+# Open a note
+- tapOn:
+    index: 0
+    id: "open-note-*"
+- extendedWaitUntil:
+    visible: "Updated"
+    timeout: 5000
+# Back returns to the list
+- tapOn:
+    id: "back-button"
+- assertVisible:
+    id: "open-note-*"
+# Type, then Clean clears + returns to list + focuses input
+- tapOn:
+    id: "search-input"
+- inputText: "docker"
+- tapOn:
+    id: "clean-button"
+- assertNotVisible: "docker"
+- assertVisible:
+    id: "open-note-*"

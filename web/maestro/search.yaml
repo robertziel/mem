@@ -1,0 +1,13 @@
+appId: com.anonymous.mem
+name: Search filters and highlights
+---
+- runFlow: common/setup.yaml
+- tapOn:
+    id: "search-input"
+- inputText: "ruby metaprogramming"
+# Give debounce time to settle
+- extendedWaitUntil:
+    visible: "Ruby"
+    timeout: 5000
+- assertVisible: "Ruby"
+- assertVisible: "metaprogramming"

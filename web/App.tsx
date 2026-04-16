@@ -169,6 +169,7 @@ export default function App() {
             <Pressable
               accessibilityLabel="Clear search and focus"
               accessibilityRole="button"
+              testID="clean-button"
               onPress={cleanSearch}
               style={({ pressed }: { pressed?: boolean }) => [
                 styles.textButton,
@@ -181,6 +182,7 @@ export default function App() {
               <Pressable
                 accessibilityLabel="Back to list"
                 accessibilityRole="button"
+                testID="back-button"
                 onPress={goBackToList}
                 style={({ pressed }: { pressed?: boolean }) => [
                   styles.iconButton,
@@ -210,6 +212,7 @@ function SearchField({ query, onChangeText, inputRef }: SearchFieldProps) {
       <TextInput
         ref={inputRef}
         accessibilityLabel="Search notes"
+        testID="search-input"
         onChangeText={onChangeText}
         placeholder="Search"
         placeholderTextColor={palette.mutedText2}
