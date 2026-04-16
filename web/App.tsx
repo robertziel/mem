@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { startTransition, useDeferredValue, useEffect, useRef, useState } from 'react';
+import { startTransition, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -16,6 +16,7 @@ import {
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
+import { useDebouncedValue } from './app/hooks/useDebouncedValue';
 import { useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
 import type { NoteListItem, SeedNote } from './app/types';
@@ -54,7 +55,9 @@ export default function App() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [compactPane, setCompactPane] = useState<CompactPane>('list');
   const keyboardInset = useKeyboardInset();
-  const deferredQuery = useDeferredValue(query);
+  // Debounce the query: search only runs after the user has been idle
+  // for 500 ms. Prevents re-scanning 793 notes on every keystroke.
+  const debouncedQuery = useDebouncedValue(query, 500);
 
   // Live mirrors so the global key listener can read the latest state
   // without re-subscribing (React 19 StrictMode double-mounts effects;
@@ -136,8 +139,8 @@ export default function App() {
     if (appState !== 'ready') return;
     let active = true;
     async function loadItems() {
-      const next = deferredQuery.trim()
-        ? await noteRepository.searchNotes(deferredQuery)
+      const next = debouncedQuery.trim()
+        ? await noteRepository.searchNotes(debouncedQuery)
         : await noteRepository.listNotes(80);
       if (!active) return;
       setItems(next);
@@ -147,7 +150,7 @@ export default function App() {
     }
     void loadItems();
     return () => { active = false; };
-  }, [appState, deferredQuery, selectedPath]);
+  }, [appState, debouncedQuery, selectedPath]);
 
   useEffect(() => {
     if (!selectedPath || appState !== 'ready') {
