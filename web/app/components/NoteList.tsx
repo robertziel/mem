@@ -10,18 +10,20 @@ type NoteListProps = {
   isCompact: boolean;
 };
 
-const iOS = {
-  systemBackground: '#ffffff',
-  systemGroupedBackground: '#f2f2f7',
-  label: '#000000',
-  secondaryLabel: '#3c3c4399',
-  separator: '#3c3c432d',
-  systemGray3: '#c7c7cc',
-  systemGray5: '#e5e5ea',
-  systemBlue: '#007aff',
+const palette = {
+  surface: '#fffaf0',
+  surfaceSelected: '#fff2cc',
+  surfaceHover: '#faf3e3',
+  border: '#e4d7b8',
+  borderStrong: '#d7cbb6',
+  accent: '#a86b18',
+  title: '#102926',
+  mutedText: '#7b5b2a',
+  mutedText2: '#8a7b5c',
+  chevron: '#c1a977',
 };
 
-const iosSystemFont = Platform.select({
+const systemFont = Platform.select({
   web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
   default: undefined,
 }) as string | undefined;
@@ -69,23 +71,25 @@ export function NoteList({ items, onSelect, selectedPath, isCompact }: NoteListP
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 24,
   },
   containerCompact: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 120,
   },
   group: {
-    backgroundColor: iOS.systemBackground,
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderColor: palette.border,
+    borderRadius: 14,
+    borderWidth: 1,
     overflow: 'hidden',
   },
   row: {
     alignItems: 'center',
-    backgroundColor: iOS.systemBackground,
-    borderBottomColor: iOS.separator,
+    backgroundColor: palette.surface,
+    borderBottomColor: palette.border,
     borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 10,
@@ -94,42 +98,42 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   rowFirst: {
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
   },
   rowLast: {
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
     borderBottomWidth: 0,
   },
   rowHovered: {
-    backgroundColor: '#fafafc',
+    backgroundColor: palette.surfaceHover,
   },
   rowPressed: {
-    backgroundColor: iOS.systemGray5,
+    backgroundColor: palette.surfaceHover,
   },
   rowSelected: {
-    backgroundColor: '#eef5ff',
+    backgroundColor: palette.surfaceSelected,
   },
   rowContent: {
     flex: 1,
     gap: 2,
   },
   title: {
-    color: iOS.label,
-    fontFamily: iosSystemFont,
+    color: palette.title,
+    fontFamily: systemFont,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
     letterSpacing: -0.2,
   },
   path: {
-    color: iOS.secondaryLabel,
-    fontFamily: iosSystemFont,
+    color: palette.mutedText,
+    fontFamily: systemFont,
     fontSize: 12,
   },
   chevron: {
-    color: iOS.systemGray3,
-    fontFamily: iosSystemFont,
+    color: palette.chevron,
+    fontFamily: systemFont,
     fontSize: 20,
     fontWeight: '500',
   },

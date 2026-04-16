@@ -21,24 +21,22 @@ import type { NoteListItem, SeedNote } from './app/types';
 type AppState = 'loading' | 'ready' | 'error';
 type CompactPane = 'list' | 'detail';
 
-// iOS system palette
-const iOS = {
-  systemBackground: '#ffffff',
-  secondarySystemBackground: '#f2f2f7',
-  tertiarySystemBackground: '#ffffff',
-  systemGroupedBackground: '#f2f2f7',
-  label: '#000000',
-  secondaryLabel: '#3c3c4399',
-  tertiaryLabel: '#3c3c434d',
-  separator: '#3c3c432d',
-  systemBlue: '#007aff',
-  systemGray: '#8e8e93',
-  systemGray2: '#aeaeb2',
-  systemGray3: '#c7c7cc',
-  systemGray4: '#d1d1d6',
-  systemGray5: '#e5e5ea',
-  systemGray6: '#f2f2f7',
-  systemRed: '#ff3b30',
+// Warm Claude earth-tone palette
+const palette = {
+  bg: '#efe6d5',               // page background (warm parchment)
+  surface: '#fffaf0',          // card surface
+  surfaceAlt: '#f6efe2',       // alt surface (grouping stripe)
+  surfaceInput: '#fffaf0',     // input background
+  surfaceSelected: '#fff2cc',  // selected row tint
+  border: '#e4d7b8',           // soft border
+  borderStrong: '#d7cbb6',     // stronger border
+  title: '#102926',            // dark teal title
+  text: '#18312e',             // body text
+  mutedText: '#7b5b2a',        // brown secondary
+  mutedText2: '#8a7b5c',       // muted label
+  accent: '#a86b18',           // brown accent
+  accentDark: '#7b5b2a',       // deeper brown
+  danger: '#8f2f1b',           // rust red
 };
 
 export default function App() {
@@ -119,10 +117,7 @@ export default function App() {
   const cleanSearch = () => {
     setQuery('');
     setCompactPane('list');
-    // Give the list time to re-render, then focus
-    requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-    });
+    requestAnimationFrame(() => searchInputRef.current?.focus());
   };
 
   const handleSelect = (path: string) => {
@@ -141,7 +136,6 @@ export default function App() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style={Platform.OS === 'web' ? 'dark' : 'auto'} />
       <View style={[styles.root, isCompact ? styles.rootCompact : null]}>
-        {/* Desktop layout: side-by-side */}
         {!isCompact && (
           <View style={styles.desktopLayout}>
             <View style={styles.sidebar}>
@@ -156,7 +150,6 @@ export default function App() {
           </View>
         )}
 
-        {/* Compact (mobile) layout */}
         {isCompact && showingList && (
           <View style={styles.compactPane}>
             {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect, isCompact })}
@@ -190,12 +183,11 @@ export default function App() {
                 accessibilityRole="button"
                 onPress={goBackToList}
                 style={({ pressed }: { pressed?: boolean }) => [
-                  styles.toolbarButton,
+                  styles.iconButton,
                   pressed ? styles.toolbarButtonPressed : null,
                 ]}
               >
                 <Text style={styles.backChevron}>‹</Text>
-                <Text style={styles.toolbarButtonText}>Back</Text>
               </Pressable>
             )}
           </View>
@@ -220,7 +212,7 @@ function SearchField({ query, onChangeText, inputRef }: SearchFieldProps) {
         accessibilityLabel="Search notes"
         onChangeText={onChangeText}
         placeholder="Search"
-        placeholderTextColor={iOS.systemGray}
+        placeholderTextColor={palette.mutedText2}
         style={styles.searchInput}
         value={query}
         autoCorrect={false}
@@ -248,7 +240,7 @@ function renderListPane(args: {
   if (appState === 'loading') {
     return (
       <View style={styles.centerState}>
-        <ActivityIndicator color={iOS.systemGray} size="small" />
+        <ActivityIndicator color={palette.accent} size="small" />
       </View>
     );
   }
@@ -287,7 +279,7 @@ function renderDetailPane(args: {
   if (detailLoading) {
     return (
       <View style={styles.centerState}>
-        <ActivityIndicator color={iOS.systemGray} size="small" />
+        <ActivityIndicator color={palette.accent} size="small" />
       </View>
     );
   }
@@ -310,18 +302,18 @@ function renderDetailPane(args: {
   );
 }
 
-const iosSystemFont = Platform.select({
+const systemFont = Platform.select({
   web: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif',
   default: undefined,
 }) as string | undefined;
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: iOS.systemGroupedBackground,
+    backgroundColor: palette.bg,
     flex: 1,
   },
   root: {
-    backgroundColor: iOS.systemGroupedBackground,
+    backgroundColor: palette.bg,
     flex: 1,
   },
   rootCompact: {
@@ -332,8 +324,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   sidebar: {
-    backgroundColor: iOS.systemGroupedBackground,
-    borderRightColor: iOS.separator,
+    backgroundColor: palette.bg,
+    borderRightColor: palette.border,
     borderRightWidth: 1,
     minWidth: 320,
     width: 360,
@@ -344,54 +336,56 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   detailPane: {
-    backgroundColor: iOS.systemBackground,
+    backgroundColor: palette.surface,
     flex: 1,
   },
   compactPane: {
     flex: 1,
   },
 
-  // Search pill (iOS style)
+  // Search pill
   searchPill: {
     alignItems: 'center',
-    backgroundColor: iOS.systemGray5,
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
+    borderRadius: 12,
+    borderWidth: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   searchGlyph: {
-    color: iOS.systemGray,
+    color: palette.mutedText2,
     fontSize: 16,
   },
   searchInput: {
-    color: iOS.label,
+    color: palette.title,
     flex: 1,
-    fontFamily: iosSystemFont,
+    fontFamily: systemFont,
     fontSize: 16,
     ...(Platform.OS === 'web' ? { outlineStyle: 'none' as unknown as 'solid' } : {}),
   },
   clearButton: {
     alignItems: 'center',
-    backgroundColor: iOS.systemGray3,
+    backgroundColor: palette.mutedText2,
     borderRadius: 9,
     height: 18,
     justifyContent: 'center',
     width: 18,
   },
   clearGlyph: {
-    color: iOS.systemBackground,
+    color: palette.surface,
     fontSize: 10,
     fontWeight: '700',
     lineHeight: 12,
   },
 
-  // Bottom bar (mobile)
+  // Bottom bar
   bottomBar: {
     alignItems: 'center',
-    backgroundColor: 'rgba(249, 249, 251, 0.92)',
-    borderTopColor: iOS.separator,
+    backgroundColor: 'rgba(239, 230, 213, 0.92)',
+    borderTopColor: palette.border,
     borderTopWidth: 1,
     bottom: 0,
     flexDirection: 'row',
@@ -412,33 +406,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Toolbar buttons (iOS blue text style)
+  // Toolbar buttons
   toolbarButton: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 0,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  iconButton: {
+    alignItems: 'center',
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
   },
   toolbarButtonPressed: {
     opacity: 0.5,
   },
   backChevron: {
-    color: iOS.systemBlue,
-    fontFamily: iosSystemFont,
-    fontSize: 24,
-    fontWeight: '500',
-    lineHeight: 24,
-    marginRight: 2,
+    color: palette.accent,
+    fontFamily: systemFont,
+    fontSize: 22,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginTop: -2,
   },
   toolbarButtonText: {
-    color: iOS.systemBlue,
-    fontFamily: iosSystemFont,
-    fontSize: 17,
-    fontWeight: '400',
+    color: palette.accent,
+    fontFamily: systemFont,
+    fontSize: 15,
+    fontWeight: '600',
   },
 
-  // Empty / error / loading states
+  // States
   centerState: {
     alignItems: 'center',
     flex: 1,
@@ -446,13 +449,13 @@ const styles = StyleSheet.create({
     padding: 24,
   },
   emptyText: {
-    color: iOS.systemGray,
-    fontFamily: iosSystemFont,
+    color: palette.mutedText2,
+    fontFamily: systemFont,
     fontSize: 15,
   },
   errorText: {
-    color: iOS.systemRed,
-    fontFamily: iosSystemFont,
+    color: palette.danger,
+    fontFamily: systemFont,
     fontSize: 15,
     textAlign: 'center',
   },
@@ -465,20 +468,20 @@ const styles = StyleSheet.create({
   },
   detailScrollCompact: {
     paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingTop: 16,
     paddingBottom: 100,
   },
   detailTitle: {
-    color: iOS.label,
-    fontFamily: iosSystemFont,
-    fontSize: 28,
+    color: palette.title,
+    fontFamily: Platform.select({ web: 'Georgia, "Iowan Old Style", serif', default: undefined }),
+    fontSize: 30,
     fontWeight: '700',
-    letterSpacing: -0.4,
+    letterSpacing: -0.3,
     marginBottom: 6,
   },
   detailMeta: {
-    color: iOS.secondaryLabel,
-    fontFamily: iosSystemFont,
+    color: palette.mutedText,
+    fontFamily: systemFont,
     fontSize: 13,
     marginBottom: 18,
   },
