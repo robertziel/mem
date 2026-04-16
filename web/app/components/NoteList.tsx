@@ -1,4 +1,5 @@
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { ReactNode } from 'react';
 
 import type { NoteListItem } from '../types';
 
@@ -21,6 +22,8 @@ const palette = {
   mutedText: '#7b5b2a',
   mutedText2: '#8a7b5c',
   chevron: '#c1a977',
+  highlightBg: '#fff1b8',
+  highlightText: '#5a3d08',
 };
 
 const systemFont = Platform.select({
@@ -28,7 +31,42 @@ const systemFont = Platform.select({
   default: undefined,
 }) as string | undefined;
 
-export function NoteList({ items, onSelect, selectedPath, isCompact }: NoteListProps) {
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeTerms(query: string): string[] {
+  return Array.from(
+    new Set(
+      query
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((t) => t.length > 0),
+    ),
+  );
+}
+
+function highlight(text: string, terms: string[], keyPrefix: string): ReactNode {
+  if (!text || terms.length === 0) return text;
+  const pattern = new RegExp(`(${terms.map(escapeRegex).join('|')})`, 'gi');
+  const parts = text.split(pattern);
+  return parts.map((part, idx) => {
+    if (!part) return null;
+    const isMatch = terms.includes(part.toLowerCase());
+    if (isMatch) {
+      return (
+        <Text key={`${keyPrefix}-${idx}`} style={styles.highlight}>
+          {part}
+        </Text>
+      );
+    }
+    return part;
+  });
+}
+
+export function NoteList({ items, onSelect, selectedPath, isCompact, query }: NoteListProps) {
+  const terms = normalizeTerms(query);
   return (
     <ScrollView contentContainerStyle={[styles.container, isCompact ? styles.containerCompact : null]}>
       <View style={styles.group}>
@@ -36,6 +74,7 @@ export function NoteList({ items, onSelect, selectedPath, isCompact }: NoteListP
           const selected = item.path === selectedPath;
           const isFirst = idx === 0;
           const isLast = idx === items.length - 1;
+          const preview = item.preview?.trim();
           return (
             <Pressable
               accessibilityLabel={`Open ${item.title}`}
@@ -53,11 +92,16 @@ export function NoteList({ items, onSelect, selectedPath, isCompact }: NoteListP
             >
               <View style={styles.rowContent}>
                 <Text numberOfLines={1} style={styles.title}>
-                  {item.title}
+                  {highlight(item.title, terms, `t-${idx}`)}
                 </Text>
                 <Text numberOfLines={1} style={styles.path}>
-                  {item.path}
+                  {highlight(item.path, terms, `p-${idx}`)}
                 </Text>
+                {terms.length > 0 && preview ? (
+                  <Text numberOfLines={3} style={styles.preview}>
+                    {highlight(preview, terms, `pv-${idx}`)}
+                  </Text>
+                ) : null}
               </View>
               <Text style={styles.chevron}>›</Text>
             </Pressable>
@@ -95,7 +139,7 @@ const styles = StyleSheet.create({
     gap: 10,
     minHeight: 56,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 12,
   },
   rowFirst: {
     borderTopLeftRadius: 14,
@@ -117,7 +161,7 @@ const styles = StyleSheet.create({
   },
   rowContent: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
   title: {
     color: palette.title,
@@ -131,10 +175,22 @@ const styles = StyleSheet.create({
     fontFamily: systemFont,
     fontSize: 12,
   },
+  preview: {
+    color: palette.mutedText2,
+    fontFamily: systemFont,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+  },
   chevron: {
     color: palette.chevron,
     fontFamily: systemFont,
     fontSize: 20,
     fontWeight: '500',
+  },
+  highlight: {
+    backgroundColor: palette.highlightBg,
+    color: palette.highlightText,
+    fontWeight: '700',
   },
 });
