@@ -5,19 +5,23 @@
 - Defined per-table, fires before or after the operation
 
 ```sql
--- Audit log trigger
+-- Audit log trigger — must branch on TG_OP because NEW is NULL on DELETE
+-- and OLD is NULL on INSERT (accessing .id on NULL raises in PL/pgSQL).
 CREATE OR REPLACE FUNCTION audit_changes() RETURNS trigger AS $$
 BEGIN
-  INSERT INTO audit_log (table_name, operation, row_id, changed_at, old_data, new_data)
-  VALUES (
-    TG_TABLE_NAME,
-    TG_OP,
-    COALESCE(NEW.id, OLD.id),
-    NOW(),
-    row_to_json(OLD),
-    row_to_json(NEW)
-  );
-  RETURN NEW;
+  IF TG_OP = 'DELETE' THEN
+    INSERT INTO audit_log (table_name, operation, row_id, changed_at, old_data, new_data)
+    VALUES (TG_TABLE_NAME, TG_OP, OLD.id, NOW(), row_to_json(OLD), NULL);
+    RETURN OLD;  -- DELETE triggers must RETURN OLD (not NEW, which is NULL)
+  ELSIF TG_OP = 'INSERT' THEN
+    INSERT INTO audit_log (table_name, operation, row_id, changed_at, old_data, new_data)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, NOW(), NULL, row_to_json(NEW));
+    RETURN NEW;
+  ELSE  -- UPDATE
+    INSERT INTO audit_log (table_name, operation, row_id, changed_at, old_data, new_data)
+    VALUES (TG_TABLE_NAME, TG_OP, NEW.id, NOW(), row_to_json(OLD), row_to_json(NEW));
+    RETURN NEW;
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 

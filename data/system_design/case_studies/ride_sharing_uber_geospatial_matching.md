@@ -31,7 +31,8 @@ Driver App -> [API Gateway] -> [Location Service] -> [Geospatial Index]
 1. Driver sends location every 5 seconds
 2. Store in Redis: GEOADD drivers:available lng lat driver_id
 3. Rider requests ride at (lat, lng)
-4. Find nearby drivers: GEORADIUS drivers:available lng lat 5 km COUNT 10 ASC
+4. Find nearby drivers: GEOSEARCH drivers:available FROMLONLAT lng lat BYRADIUS 5 km ASC COUNT 10
+   (GEORADIUS is deprecated in Redis 6.2+ — use GEOSEARCH / GEOSEARCHSTORE)
 5. Send request to nearest available driver
 ```
 
@@ -77,4 +78,4 @@ fare = base_fare
 - Ride data: PostgreSQL/DynamoDB sharded by city or region
 - Matching: per-city service instances (geographic partitioning)
 
-**Rule of thumb:** Geohash + Redis GEORADIUS for nearby driver matching. Kafka for high-frequency location streams. Partition by city/region for scaling. Push notifications for time-sensitive driver matching. The core innovation is the geospatial index, not the booking flow.
+**Rule of thumb:** Geohash + Redis GEOSEARCH (GEORADIUS is deprecated since Redis 6.2) for nearby driver matching. Kafka for high-frequency location streams. Partition by city/region for scaling. Push notifications for time-sensitive driver matching. The core innovation is the geospatial index, not the booking flow.

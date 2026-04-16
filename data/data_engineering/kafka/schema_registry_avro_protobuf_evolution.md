@@ -20,7 +20,7 @@ Producer → serialize with schema → [Kafka] → Consumer → deserialize with
 | Format | Type | Size | Schema | Human-readable | Best for |
 |--------|------|------|--------|---------------|----------|
 | JSON | Text | Large | Optional (JSON Schema) | Yes | Debugging, simple |
-| Avro | Binary | Small | Required (embedded) | No | Kafka standard, schema evolution |
+| Avro | Binary | Small | Required — full schema in Object Container Files, but in Confluent Schema Registry wire format only a 4-byte schema ID is embedded (the full schema lives in the registry) | No | Kafka standard, schema evolution |
 | Protobuf | Binary | Small | Required (.proto) | No | gRPC + Kafka, cross-language |
 
 **Avro schema example:**

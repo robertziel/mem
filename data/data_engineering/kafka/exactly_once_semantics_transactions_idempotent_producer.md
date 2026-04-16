@@ -5,7 +5,7 @@
 |-------|----------|------|--------|
 | At-most-once | Send and forget | Message loss | `acks=0` |
 | At-least-once | Retry until ACK | Duplicates | `acks=all` (default) |
-| Exactly-once | Each message processed once | None (complex) | Idempotent producer + transactions |
+| Exactly-once | Processed once **within Kafka's transactional read-process-write boundary** | Complexity; does NOT cover external side effects (DB writes, HTTP calls, emails, payments — those need idempotency keys, the outbox pattern, or 2-phase coordination) | Idempotent producer + transactions |
 
 **Idempotent producer (deduplication on broker):**
 ```properties

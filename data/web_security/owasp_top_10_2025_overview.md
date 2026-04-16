@@ -1,24 +1,25 @@
-### OWASP Top 10 (2025) Overview
+### OWASP Top 10 (2021, current official) Overview
 
 **What OWASP Top 10 is:**
 - Industry-standard awareness document for web application security
 - Updated periodically based on real-world vulnerability data
 - Every backend engineer should know these categories
+- The 2021 edition is the current official release. A 2025 edition was planned but check https://owasp.org/Top10/ for the latest — do not rely on unofficial previews.
 
-**OWASP Top 10 — 2025 Edition:**
+**OWASP Top 10 — 2021 Edition (current official):**
 
 | # | Category | Description |
 |---|----------|-------------|
 | A01 | **Broken Access Control** | Users act outside intended permissions |
-| A02 | **Security Misconfiguration** | Default configs, open cloud storage, verbose errors |
-| A03 | **Software Supply Chain Failures** | Vulnerable dependencies, compromised packages |
-| A04 | **Cryptographic Failures** | Weak encryption, plaintext secrets, broken TLS |
-| A05 | **Injection** | SQL, XSS, command injection via untrusted input |
+| A02 | **Cryptographic Failures** | Weak encryption, plaintext secrets, broken TLS |
+| A03 | **Injection** | SQL, XSS, command injection via untrusted input |
+| A04 | **Insecure Design** | Flawed business logic, missing threat modeling |
+| A05 | **Security Misconfiguration** | Default configs, open cloud storage, verbose errors |
 | A06 | **Vulnerable and Outdated Components** | Known CVEs in libraries/frameworks |
-| A07 | **Authentication Failures** | Broken auth, credential stuffing, weak passwords |
-| A08 | **Data Integrity Failures** | Insecure deserialization, unsigned updates |
-| A09 | **Security Logging & Monitoring Failures** | No audit trail, no alerting on attacks |
-| A10 | **Mishandling of Exceptional Conditions** | Improper error handling, logic errors |
+| A07 | **Identification and Authentication Failures** | Broken auth, credential stuffing, weak passwords |
+| A08 | **Software and Data Integrity Failures** | Insecure deserialization, unsigned updates, supply-chain attacks |
+| A09 | **Security Logging and Monitoring Failures** | No audit trail, no alerting on attacks |
+| A10 | **Server-Side Request Forgery (SSRF)** | Server makes unvalidated outbound requests |
 
 **A01: Broken Access Control (most critical):**
 - User accesses another user's data by changing ID in URL

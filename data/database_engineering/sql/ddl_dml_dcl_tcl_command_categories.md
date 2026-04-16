@@ -6,8 +6,11 @@ CREATE TABLE users (id BIGSERIAL PRIMARY KEY, name TEXT);
 ALTER TABLE users ADD COLUMN email TEXT;
 ALTER TABLE users ALTER COLUMN name SET NOT NULL;
 DROP TABLE users;
-TRUNCATE TABLE users;          -- delete all rows (faster than DELETE, resets auto-increment)
-RENAME TABLE old_name TO new_name;
+TRUNCATE TABLE users;          -- MySQL: resets AUTO_INCREMENT.
+                               -- PostgreSQL: does NOT reset sequences unless you add RESTART IDENTITY.
+TRUNCATE TABLE users RESTART IDENTITY;        -- PostgreSQL: also reset sequences
+ALTER TABLE old_name RENAME TO new_name;      -- PostgreSQL / standard SQL
+-- RENAME TABLE old_name TO new_name;         -- MySQL-only syntax
 ```
 - Defines/modifies database structure (tables, indexes, schemas)
 - Auto-committed (can't ROLLBACK a DROP in most databases)
@@ -19,7 +22,7 @@ SELECT name, email FROM users WHERE active = true;
 INSERT INTO users (name, email) VALUES ('Alice', 'a@b.com');
 UPDATE users SET name = 'Bob' WHERE id = 1;
 DELETE FROM users WHERE id = 1;
-MERGE INTO ... USING ... WHEN MATCHED THEN UPDATE ...;   -- upsert (not standard PG, use ON CONFLICT)
+MERGE INTO ... USING ... WHEN MATCHED THEN UPDATE ...;   -- upsert (PostgreSQL 15+; older PG uses INSERT ... ON CONFLICT)
 ```
 - Reads and modifies data within tables
 - Can be rolled back within a transaction
@@ -60,7 +63,7 @@ ROLLBACK;                      -- undo entire transaction
 | Command | What | Logged | Rollback | Triggers |
 |---------|------|--------|----------|----------|
 | DELETE | Remove rows (with WHERE) | Yes (row by row) | Yes | Fires triggers |
-| TRUNCATE | Remove ALL rows | Minimal logging | Yes (in PG) | No triggers |
+| TRUNCATE | Remove ALL rows | Minimal logging | Yes (in PG) | No row triggers; PG fires BEFORE/AFTER TRUNCATE statement-level triggers; MySQL fires no triggers |
 | DROP | Remove entire table | DDL | Yes (in PG) | No triggers |
 
 **Rule of thumb:** DDL for structure, DML for data, DCL for permissions, TCL for transactions. PostgreSQL is special: DDL is transactional (can rollback CREATE TABLE). TRUNCATE over DELETE for clearing large tables (much faster). Always use transactions for multi-statement operations.

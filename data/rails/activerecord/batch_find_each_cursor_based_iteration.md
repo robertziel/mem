@@ -25,18 +25,18 @@ User.where(active: true).in_batches(of: 5000) do |relation|
   relation.update_all(notified: true)
 end
 
-# Limitations of find_each:
-# - Orders by primary key (can't use custom ORDER BY)
-# - Doesn't work well with custom sorting
-# - Uses OFFSET under the hood (OK for most cases)
+# Notes on find_each:
+# - Already cursor-based: uses WHERE id > last_id internally (NOT OFFSET)
+# - Default order is PK ASC; Rails 7.1+ adds cursor:/order: options
+#   User.find_each(cursor: :created_at, order: :desc) do |user| ... end
+# - Cursor columns must be unique and stable (PK is the safe default)
 ```
 
-**2. Cursor-based iteration (avoid OFFSET for very large tables):**
+**2. Manual cursor-based iteration (non-PK cursors, cross-DB portability):**
 ```ruby
-# For tens of millions of rows, OFFSET becomes slow
-# (DB must scan and skip N rows each batch)
-
-# Cursor-based: use WHERE id > last_id instead of OFFSET
+# find_each already does cursor iteration on the primary key.
+# Write a manual cursor when iterating by a non-PK column
+# or when working around replica lag / long-running transactions.
 def process_in_cursor_batches(scope, batch_size: 5000)
   last_id = 0
 
@@ -61,4 +61,4 @@ end
 # WHERE created_at > last_created_at OR (created_at = last_created_at AND id > last_id)
 ```
 
-**Rule of thumb:** Never `.each` over millions of records. Use `find_each` by default for iterating one record at a time, `find_in_batches` when you need the batch as an array, and `in_batches` when you want an ActiveRecord::Relation for bulk operations. Switch to cursor-based iteration for tens of millions of rows where OFFSET becomes slow.
+**Rule of thumb:** Never `.each` over millions of records. Use `find_each` by default (already cursor-based on PK, not OFFSET), `find_in_batches` for array batches, `in_batches` for Relation-level bulk operations. Write a manual cursor only when you need to iterate by a non-PK column.

@@ -98,7 +98,13 @@ class IdempotencyGuard
     Redis.current.set("idempotency:result:#{key}", result.to_json, ex: TTL)
     result
   rescue => e
-    Redis.current.del("idempotency:#{key}")  # allow retry on failure
+    # DANGER: do NOT blindly delete the key on exception — the side effect
+    # (charge, email, external API call) may have already completed before
+    # the raise. Deleting the key enables retries that cause duplicate
+    # side effects. Instead, record state (failed/unknown) and only retry
+    # after verifying the outcome with the external system.
+    Redis.current.set("idempotency:result:#{key}",
+                      { status: "failed", error: e.message }.to_json, ex: TTL)
     raise
   end
 end
@@ -149,4 +155,4 @@ Your system achieves exactly-once:
 - gRPC: client retry with same request ID
 - HTTP: `If-None-Match` / `ETag` for conditional requests
 
-**Rule of thumb:** Every mutation endpoint needs an idempotency key. Compose the key from business identifiers (order_id + attempt), not random values. Store the key + result together atomically. Return the cached result on duplicate requests. Set a TTL on idempotency records (24h is typical). On failure, delete the idempotency key to allow legitimate retries. This is how you achieve exactly-once semantics in a distributed system.
+**Rule of thumb:** Every mutation endpoint needs an idempotency key. Compose the key from business identifiers (order_id + attempt), not random values. Store the key + result together atomically. Return the cached result on duplicate requests. Set a TTL on idempotency records (24h is typical). On failure, record state (processing/succeeded/failed/unknown) rather than deleting the key — blindly deleting can cause duplicate side effects if the mutation already completed before the error. This is how you achieve exactly-once semantics in a distributed system.

@@ -22,4 +22,12 @@ CREATE POLICY admin_all ON orders
   USING (current_setting('app.role') = 'admin');
 ```
 
-**Rule of thumb:** RLS for multi-tenant data isolation (automatic, can't bypass in SQL). Set context variables per connection from the application. Every query automatically filtered — no way to accidentally see another tenant's data.
+**Important bypass caveats:** RLS is **NOT absolute**. It is bypassed by:
+- The table owner (unless `ALTER TABLE ... FORCE ROW LEVEL SECURITY` is set)
+- Superusers (always)
+- Roles with the `BYPASSRLS` attribute
+- Referential-integrity checks under some circumstances
+
+Your app should connect as a role that is NOT the table owner, does NOT have `BYPASSRLS`, and is NOT a superuser — and you should set `FORCE ROW LEVEL SECURITY` on sensitive tables.
+
+**Rule of thumb:** RLS gives defense-in-depth for multi-tenant isolation — automatic filtering based on connection context. Configure app roles without ownership/BYPASSRLS/superuser, apply `FORCE ROW LEVEL SECURITY`, and treat RLS as the second line of defense, not the only one.

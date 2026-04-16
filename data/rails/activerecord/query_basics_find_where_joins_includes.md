@@ -7,7 +7,7 @@ User.find_by(email: "a@b.com")   # returns nil if missing
 User.find_by!(email: "a@b.com")  # raises RecordNotFound if missing
 User.where(active: true)          # returns Relation (lazy, chainable)
 User.where.not(role: "admin")     # NOT condition
-User.or(User.where(role: "admin"), User.where(role: "editor"))  # OR
+User.where(role: "admin").or(User.where(role: "editor"))  # OR — chain .or on a relation
 ```
 
 **Where conditions:**

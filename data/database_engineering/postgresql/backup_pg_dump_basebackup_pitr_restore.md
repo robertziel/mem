@@ -9,8 +9,11 @@
 
 **pg_dump (logical backup):**
 ```bash
-# Dump single database (custom format — compressed, parallel restore)
-pg_dump -Fc -j4 -d mydb -f backup.dump
+# Dump single database (custom format — compressed, single-threaded)
+pg_dump -Fc -d mydb -f backup.dump
+
+# Parallel dump — REQUIRES directory format (-Fd), NOT -Fc
+pg_dump -Fd -j4 -d mydb -f backup_dir/
 
 # Dump specific tables
 pg_dump -Fc -d mydb -t users -t orders -f partial.dump

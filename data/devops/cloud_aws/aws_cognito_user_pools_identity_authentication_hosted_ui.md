@@ -55,7 +55,7 @@ Client → API Gateway → Cognito Authorizer (validates JWT) → Lambda / Backe
 **Cognito vs alternatives:**
 | Feature | Cognito | Auth0 | Firebase Auth | Devise (self-hosted) |
 |---------|---------|-------|---------------|---------------------|
-| Cost | Free up to 50K MAU | Free up to 7.5K MAU | Free up to 10K/month | Free (self-hosted) |
+| Cost (always check current pricing) | Tiered after Nov 2024 (Lite / Essentials / Plus) — free tier MAU varies by tier; previously 50K | Free up to 7.5K MAU | Free up to 10K/month | Free (self-hosted) |
 | AWS integration | Native | SDK | SDK | Manual |
 | Hosted UI | Yes (basic) | Yes (polished) | Yes | No (build yourself) |
 | Customization | Limited | Extensive | Moderate | Full control |

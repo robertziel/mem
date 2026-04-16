@@ -119,7 +119,7 @@ end
 User.where(active: true)
 User.where(:age.gte => 18)
 User.where(:age.gte => 18, :age.lte => 65)
-User.where(role: "admin").or(role: "moderator")
+User.or({ role: "admin" }, { role: "moderator" })  # Mongoid: .or takes criteria hashes
 User.not(role: "banned")
 User.in(role: ["admin", "moderator"])
 User.where(:tags.in => ["ruby", "rails"])  # array contains any of

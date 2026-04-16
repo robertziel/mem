@@ -18,10 +18,26 @@ class ApiController < ActionController::API
   private
 
   def authenticate
-    token = request.headers["Authorization"]&.split(" ")&.last
-    decoded = JWT.decode(token, Rails.application.secret_key_base)
+    token = request.headers["Authorization"]&.split(" ", 2)&.last
+    return render_unauthorized if token.blank?
+
+    # CRITICAL: always pass verify=true and algorithm. Omitting them
+    # historically enabled the "alg: none" attack. Require exp to
+    # reject unexpiring tokens.
+    decoded = JWT.decode(
+      token,
+      Rails.application.secret_key_base,
+      true,
+      algorithm: 'HS256',
+      verify_expiration: true,
+      required_claims: ['exp', 'user_id']
+    )
     @current_user = User.find(decoded.first["user_id"])
-  rescue JWT::DecodeError, JWT::ExpiredSignature
+  rescue JWT::DecodeError, JWT::ExpiredSignature, JWT::MissingRequiredClaim, ActiveRecord::RecordNotFound
+    render_unauthorized
+  end
+
+  def render_unauthorized
     render json: { error: "Unauthorized" }, status: :unauthorized
   end
 end

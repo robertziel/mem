@@ -23,8 +23,8 @@ Producers -> [Broker 1] [Broker 2] [Broker 3] -> Consumers
 ```
 
 **Partitioning:**
-- Messages with same key always go to the same partition (ordering guarantee per key)
-- No key = round-robin across partitions
+- Messages with same key go to the same partition (ordering per key) — but only while partition count stays constant; adding partitions remaps future records
+- No key = **sticky partitioning** since Kafka 2.4 (default): pick a partition and fill its batch, then rotate — better batching/locality than naive round-robin (which legacy clients still use)
 - Partition count determines max parallelism (one consumer per partition per group)
 - Cannot decrease partitions (only increase)
 

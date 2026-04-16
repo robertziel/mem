@@ -8,8 +8,8 @@
 | Lock | Acquired by | Conflicts with | Blocks |
 |------|------------|---------------|--------|
 | ACCESS SHARE | `SELECT` | ACCESS EXCLUSIVE | Nothing (reads don't block reads) |
-| ROW SHARE | `SELECT FOR UPDATE` | EXCLUSIVE, ACCESS EXCLUSIVE | — |
-| ROW EXCLUSIVE | `INSERT`, `UPDATE`, `DELETE` | SHARE, EXCLUSIVE, ACCESS EXCLUSIVE | — |
+| ROW SHARE | `SELECT FOR SHARE`, `SELECT FOR KEY SHARE` | EXCLUSIVE, ACCESS EXCLUSIVE | — |
+| ROW EXCLUSIVE | `INSERT`, `UPDATE`, `DELETE`, `SELECT FOR UPDATE`, `SELECT FOR NO KEY UPDATE` | SHARE, EXCLUSIVE, ACCESS EXCLUSIVE | — |
 | SHARE | `CREATE INDEX` (non-concurrent) | ROW EXCLUSIVE, EXCLUSIVE | Writes |
 | EXCLUSIVE | Some ALTER TABLE | Almost everything | Reads + writes |
 | ACCESS EXCLUSIVE | `DROP TABLE`, `ALTER TABLE`, `VACUUM FULL` | Everything | Everything |

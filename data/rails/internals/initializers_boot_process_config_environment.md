@@ -188,7 +188,7 @@ config.x.payment_gateway.api_key = ENV["PAYMENT_KEY"]
 config.x.payment_gateway.sandbox = true
 
 # Access custom config
-Rails.configuration.x.payment_gateway.api_key
+Rails.application.config.x.payment_gateway.api_key
 
 # Or use credentials (preferred for secrets)
 Rails.application.credentials.payment_gateway[:api_key]

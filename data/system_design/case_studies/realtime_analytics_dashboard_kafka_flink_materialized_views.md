@@ -72,7 +72,7 @@ GROUP BY service, TUMBLE(event_time, INTERVAL '1' MINUTE);
 |--------|-------|-----|
 | Real-time counters (orders/min) | Redis (sorted sets + TTL) | Sub-ms reads, auto-expiry |
 | Time-series (latency, error rate) | TimescaleDB | SQL queries, retention policies, downsampling |
-| Top-N (top products, regions) | Redis (sorted sets) | O(log N) updates, O(1) range queries |
+| Top-N (top products, regions) | Redis (sorted sets) | O(log N) updates, O(log N + M) range queries (ZRANGE / ZREVRANGE) |
 | Historical (7d+) | S3 + Iceberg / ClickHouse | Cheap, columnar, fast aggregations |
 
 **Redis materialized view pattern:**

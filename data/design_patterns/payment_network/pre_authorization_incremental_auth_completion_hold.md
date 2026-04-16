@@ -105,7 +105,9 @@ class BookingService
 
   # Phase 3: Finalize (completion)
   def complete(hold)
-    final_amount = hold.estimated_amount + hold.incremental_charges.sum(:amount)
+    # hold.estimated_amount is already updated by add_charge — DO NOT add
+    # incremental_charges again or you'll double-count.
+    final_amount = hold.estimated_amount
     PaymentGateway.capture(hold.auth_reference, final_amount)
     hold.update!(status: "completed", final_amount: final_amount)
   end

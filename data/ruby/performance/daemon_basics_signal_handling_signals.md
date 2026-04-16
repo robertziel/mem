@@ -79,9 +79,9 @@ WorkerDaemon.new.run
 | SIGINT | Terminate | Ctrl+C / graceful shutdown |
 | SIGKILL | Kill (untrappable) | Force kill (last resort) |
 | SIGHUP | Terminate | Reload config |
-| SIGUSR1 | Nothing | Custom (log rotation, status) |
-| SIGUSR2 | Nothing | Custom (restart, debug) |
-| SIGTTIN | Nothing | Increase workers (Unicorn/Puma pattern) |
-| SIGTTOU | Nothing | Decrease workers |
+| SIGUSR1 | Terminate | Custom (log rotation, status) — MUST trap or process dies |
+| SIGUSR2 | Terminate | Custom (restart, debug) — MUST trap or process dies |
+| SIGTTIN | Stop | Increase workers (Unicorn/Puma pattern) — trap required |
+| SIGTTOU | Stop | Decrease workers — trap required |
 
 **Rule of thumb:** Always handle SIGTERM for graceful shutdown and SIGINT for Ctrl+C. Use SIGHUP for config reload and SIGUSR1/USR2 for custom actions. Keep your main loop simple: check a `@running` flag, process work, sleep, repeat. Always log what the daemon is doing.

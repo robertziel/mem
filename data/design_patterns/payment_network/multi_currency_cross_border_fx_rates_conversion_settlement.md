@@ -20,12 +20,16 @@ Network markup: Visa/MC adds 0.2-1% on top of base rate
 Issuer markup:  issuer adds 0-3% on top of network rate
 Total to cardholder: base + network + issuer = effective rate
 
-Example: €100 purchase on US merchant
-  Base rate: 1 EUR = 1.0800 USD → charge should be $108.00
-  Visa markup (+1%): 1 EUR = 1.0692 USD → cardholder charged €100.93
-  Issuer markup (+2%): cardholder sees €102.93 on statement
+Example: a US merchant charges $108.00 on a EUR-denominated card
+  Base rate: 1 EUR = 1.0800 USD → without markup: $108.00 / 1.0800 = €100.00
+  Visa markup (+1% worse for cardholder): effective rate 1 EUR ≈ 1.0693 USD
+    → cardholder billed $108.00 / 1.0693 ≈ €101.00
+  Issuer markup (+2% additional): effective rate worse again
+    → cardholder sees ≈ €103.00 on statement
 
-  The €2.93 difference is the cross-border cost to cardholder
+  The ≈€3.00 difference is the cross-border cost to the cardholder.
+  (Exact math depends on whether markup is applied as a spread on the rate
+   or as a flat surcharge on the EUR amount — check the issuer's disclosure.)
 ```
 
 **Settlement currencies and timing:**

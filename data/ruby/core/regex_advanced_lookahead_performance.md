@@ -33,8 +33,11 @@
 "100px 200em 300px".scan(/\d+(?=px)/)  # ["100", "300"]
 
 # Negative lookahead (?!...) -- match only if NOT followed by
-"100px 200em 300px".scan(/\d+(?!px)/)  # ["20", "0em"] (tricky!)
-# Better: /\d+(?=em)/
+"100px 200em 300px".scan(/\d+(?!px)/)  # ["10", "200", "30"]
+# Tricky: \d+ is greedy and backtracks one digit at a time when the lookahead fails,
+# so "100" drops to "10" (next char "0" followed by "px" fails lookahead),
+# "200" succeeds whole (followed by "em"), "300" drops to "30". Use /\d+(?=em)/
+# or word boundaries for cleaner behavior.
 
 # Positive lookbehind (?<=...) -- match only if preceded by
 "$100 200 $300".scan(/(?<=\$)\d+/)  # ["100", "300"]

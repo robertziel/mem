@@ -6,7 +6,8 @@
 ```
 ┌─────────────────────────────────────────────┐
 │              MySQL Server Layer              │
-│  (Parser, Optimizer, Query Cache, Executor)  │
+│  (Parser, Optimizer, Executor)                │
+│  (Query Cache was removed in MySQL 8.0)       │
 └─────────────────┬───────────────────────────┘
                   │  Storage Engine API
 ┌─────────────────▼───────────────────────────┐

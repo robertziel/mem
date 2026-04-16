@@ -12,7 +12,7 @@ Client connections
     ├── WAL Writer (flushes WAL buffers to disk)
     ├── Checkpointer (periodic full sync to disk)
     ├── Autovacuum Launcher → Autovacuum Workers
-    ├── Stats Collector (pg_stat_* views)
+    ├── Stats Collector — PG ≤14 only; removed in PG 15+ (stats now in shared memory)
     └── WAL Sender (for replication)
 ```
 
@@ -30,7 +30,8 @@ Client connections
   └── Modified pages ("dirty") written back by Background Writer
 
 [WAL Buffers] — buffer for WAL writes before flushing to disk
-  └── wal_buffers = 64MB (usually auto-tuned)
+  └── wal_buffers — default -1 (auto: 1/32 of shared_buffers, capped at ~16 MB)
+     Only raise for very high-write workloads with many concurrent commits.
 
 [Lock Table] — tracks all current locks
 
@@ -41,7 +42,7 @@ Client connections
 | Setting | Purpose | Typical value |
 |---------|---------|--------------|
 | `shared_buffers` | Shared page cache | 25% of RAM |
-| `work_mem` | Per-operation memory (sort, hash) | 64-256 MB |
+| `work_mem` | Per-operation memory (sort, hash) — allocated PER sort/hash, NOT per query | 4-64 MB (default 4 MB); raise only with low max_connections |
 | `maintenance_work_mem` | VACUUM, CREATE INDEX memory | 512 MB - 1 GB |
 | `effective_cache_size` | Planner hint (total available cache) | 75% of RAM |
 | `max_connections` | Max concurrent connections | 100-500 |

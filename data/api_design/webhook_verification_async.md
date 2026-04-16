@@ -52,15 +52,21 @@ end
 # Generic HMAC verification (many services use this pattern)
 def verify_hmac(payload, signature, secret)
   expected = OpenSSL::HMAC.hexdigest("SHA256", secret, payload)
-  return false unless signature.present?
+  return false if signature.blank?
 
-  # Constant-time comparison to prevent timing attacks
+  # secure_compare RAISES ArgumentError if strings have different byte lengths,
+  # which itself leaks length info via exceptions. Check length first.
+  return false unless expected.bytesize == signature.bytesize
   ActiveSupport::SecurityUtils.secure_compare(expected, signature)
+  # Or simpler: ActiveSupport::SecurityUtils.fixed_length_secure_compare(expected, signature)
+  #             (Rails 6.1+: raises on length mismatch; wrap or check as above)
 end
 
 # GitHub: X-Hub-Signature-256
 def verify_github(payload, signature)
+  return false if signature.blank?
   expected = "sha256=" + OpenSSL::HMAC.hexdigest("SHA256", ENV["GITHUB_WEBHOOK_SECRET"], payload)
+  return false unless expected.bytesize == signature.bytesize
   ActiveSupport::SecurityUtils.secure_compare(expected, signature)
 end
 

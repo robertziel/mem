@@ -45,7 +45,7 @@ Remove N3 -> keys move to N1 (next clockwise), not all reshuffle
 
 **Handling failures:**
 - **Node down**: redirect to replica, promote replica to primary
-- **Split brain**: use leader election (Raft in Redis Sentinel)
+- **Split brain**: use quorum-based leader election — Redis Sentinel uses its own quorum protocol (not Raft); Redis Cluster uses gossip + slot-ownership voting
 - **Hot key**: replicate hot keys to all nodes, or use local caching layer
 
 **Hot key problem:**

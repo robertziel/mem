@@ -60,7 +60,7 @@ while true:
 
 **C10K / C10M problem:**
 - C10K: handle 10,000 concurrent connections (solved by epoll/kqueue)
-- C10M: handle 10 million connections (requires kernel bypass: DPDK, io_uring)
+- C10M: handle 10 million connections — kernel bypass (DPDK, userspace TCP) OR modern in-kernel async I/O (io_uring). Note: **io_uring is NOT kernel bypass** — it's a shared-memory submit/completion queue that minimizes syscall overhead while staying in-kernel; DPDK is true kernel bypass.
 - Thread-per-connection model fails at C10K (too many threads, context switching)
 - Event-driven model handles C10K easily with a single thread
 

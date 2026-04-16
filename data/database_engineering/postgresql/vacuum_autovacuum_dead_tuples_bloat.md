@@ -63,7 +63,7 @@ SELECT * FROM pg_stat_activity WHERE query LIKE 'autovacuum%';
 **Transaction ID wraparound (critical):**
 - PostgreSQL uses 32-bit transaction IDs (4 billion max)
 - VACUUM marks old transactions as "frozen" (no longer tracked)
-- If VACUUM falls behind → wraparound → **data loss risk** → emergency VACUUM
-- Monitor: `age(datfrozenxid)` should not approach 2 billion
+- If VACUUM falls behind → PostgreSQL **forcibly shuts down writes** (refuses new transactions) to prevent corruption. No data loss — but outage until emergency single-user VACUUM completes.
+- Monitor: `age(datfrozenxid)` should not approach 2 billion (warning at ~10M before wraparound)
 
 **Rule of thumb:** Never disable autovacuum. Tune per-table for high-write tables (lower scale_factor). VACUUM FULL only as last resort (blocks everything). Monitor dead tuples and autovacuum frequency. Transaction ID wraparound is the #1 PostgreSQL operational risk — ensure autovacuum keeps up.
