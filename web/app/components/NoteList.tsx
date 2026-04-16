@@ -9,6 +9,8 @@ type NoteListProps = {
   query: string;
   selectedPath: string | null;
   isCompact: boolean;
+  /** Extra bottom padding (e.g. keyboard height) added to the scroll container. */
+  extraBottomPadding?: number;
 };
 
 const palette = {
@@ -65,10 +67,23 @@ function highlight(text: string, terms: string[], keyPrefix: string): ReactNode 
   });
 }
 
-export function NoteList({ items, onSelect, selectedPath, isCompact, query }: NoteListProps) {
+export function NoteList({
+  items,
+  onSelect,
+  selectedPath,
+  isCompact,
+  query,
+  extraBottomPadding = 0,
+}: NoteListProps) {
   const terms = normalizeTerms(query);
   return (
-    <ScrollView contentContainerStyle={[styles.container, isCompact ? styles.containerCompact : null]}>
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        isCompact ? styles.containerCompact : null,
+        isCompact && extraBottomPadding > 0 ? { paddingBottom: 120 + extraBottomPadding } : null,
+      ]}
+    >
       <View style={styles.group}>
         {items.map((item, idx) => {
           const selected = item.path === selectedPath;

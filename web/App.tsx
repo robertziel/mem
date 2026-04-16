@@ -15,6 +15,7 @@ import {
 
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteList } from './app/components/NoteList';
+import { useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
 import type { NoteListItem, SeedNote } from './app/types';
 
@@ -51,6 +52,7 @@ export default function App() {
   const [selectedNote, setSelectedNote] = useState<SeedNote | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [compactPane, setCompactPane] = useState<CompactPane>('list');
+  const keyboardInset = useKeyboardInset();
   const deferredQuery = useDeferredValue(query);
 
   // Live mirrors so the global key listener can read the latest state
@@ -208,17 +210,32 @@ export default function App() {
 
         {isCompact && showingList && (
           <View style={styles.compactPane}>
-            {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect, isCompact })}
+            {renderListPane({
+              appState,
+              errorMessage,
+              items,
+              query,
+              selectedPath,
+              onSelect: handleSelect,
+              isCompact,
+              extraBottomPadding: keyboardInset,
+            })}
           </View>
         )}
         {isCompact && showingDetail && (
           <View style={styles.compactPane}>
-            {renderDetailPane({ appState, detailLoading, note: selectedNote, isCompact })}
+            {renderDetailPane({
+              appState,
+              detailLoading,
+              note: selectedNote,
+              isCompact,
+              extraBottomPadding: keyboardInset,
+            })}
           </View>
         )}
 
         {isCompact && (
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { bottom: keyboardInset }]}>
             <View style={styles.bottomSearchWrap}>
               <SearchField query={query} onChangeText={handleQueryChange} inputRef={searchInputRef} />
             </View>
@@ -294,8 +311,9 @@ function renderListPane(args: {
   selectedPath: string | null;
   onSelect: (path: string) => void;
   isCompact: boolean;
+  extraBottomPadding?: number;
 }) {
-  const { appState, errorMessage, items, query, selectedPath, onSelect, isCompact } = args;
+  const { appState, errorMessage, items, query, selectedPath, onSelect, isCompact, extraBottomPadding = 0 } = args;
   if (appState === 'loading') {
     return (
       <View style={styles.centerState}>
@@ -324,6 +342,7 @@ function renderListPane(args: {
       query={query}
       selectedPath={selectedPath}
       isCompact={isCompact}
+      extraBottomPadding={extraBottomPadding}
     />
   );
 }
@@ -333,8 +352,9 @@ function renderDetailPane(args: {
   detailLoading: boolean;
   note: SeedNote | null;
   isCompact: boolean;
+  extraBottomPadding?: number;
 }) {
-  const { appState, detailLoading, note, isCompact } = args;
+  const { appState, detailLoading, note, isCompact, extraBottomPadding = 0 } = args;
   if (detailLoading) {
     return (
       <View style={styles.centerState}>
@@ -351,7 +371,13 @@ function renderDetailPane(args: {
   }
   if (!note) return null;
   return (
-    <ScrollView contentContainerStyle={[styles.detailScroll, isCompact ? styles.detailScrollCompact : null]}>
+    <ScrollView
+      contentContainerStyle={[
+        styles.detailScroll,
+        isCompact ? styles.detailScrollCompact : null,
+        isCompact && extraBottomPadding > 0 ? { paddingBottom: 100 + extraBottomPadding } : null,
+      ]}
+    >
       <Text style={styles.detailTitle}>{note.title}</Text>
       <Text style={styles.detailMeta}>Updated {note.mtime}</Text>
       <View style={styles.detailBody}>
