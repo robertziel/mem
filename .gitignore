@@ -5,3 +5,11 @@ web/dist/
 web/test-results/
 web/playwright-report/
 .claude/
+# Expo dev artifacts (regenerate via `npx expo prebuild` / `run`)
+web/.expo/
+web/ios/
+web/android/
+# Seed files regenerated on every `npm run dev`
+web/assets/generated/
+web/public/seed.json
+web/public/seed.meta.json

@@ -10,7 +10,8 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.mem"
     },
     "android": {
       "edgeToEdgeEnabled": true,
