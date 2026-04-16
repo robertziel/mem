@@ -17,13 +17,14 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
+import { CategoryList } from './app/components/CategoryList';
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
 import { useDebouncedValue } from './app/hooks/useDebouncedValue';
 import { keyboardClearance, useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
-import type { NoteListItem, SeedNote } from './app/types';
+import type { Category, NoteListItem, SeedNote } from './app/types';
 
 type AppState = 'loading' | 'ready' | 'error';
 type CompactPane = 'list' | 'detail';
@@ -63,6 +64,7 @@ function AppContent() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<NoteListItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<SeedNote | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -137,10 +139,16 @@ function AppContent() {
     async function initialize() {
       try {
         await noteRepository.initialize();
-        const recent = await noteRepository.listNotes(80);
+        const [recent, cats] = await Promise.all([
+          noteRepository.listNotes(80),
+          noteRepository.listCategories(),
+        ]);
         if (!active) return;
         setItems(recent);
-        setSelectedPath(recent[0]?.path ?? null);
+        setCategories(cats);
+        // Default selection: first note when there IS a query, otherwise
+        // keep empty so the categories screen shows a blank detail pane.
+        setSelectedPath(null);
         setAppState('ready');
       } catch (error) {
         if (!active) return;
@@ -154,11 +162,15 @@ function AppContent() {
 
   useEffect(() => {
     if (appState !== 'ready') return;
+    // When the query is empty we show the category picker instead of a
+    // note list; no fetch needed.
+    if (!debouncedQuery.trim()) {
+      setItems([]);
+      return;
+    }
     let active = true;
     async function loadItems() {
-      const next = debouncedQuery.trim()
-        ? await noteRepository.searchNotes(debouncedQuery)
-        : await noteRepository.listNotes(80);
+      const next = await noteRepository.searchNotes(debouncedQuery);
       if (!active) return;
       setItems(next);
       if (!next.some((item) => item.path === selectedPath)) {
@@ -204,6 +216,14 @@ function AppContent() {
     if (isCompact) setCompactPane('detail');
   };
 
+  const handleCategorySelect = (name: string) => {
+    // Tapping a category is equivalent to typing its name in the search
+    // pill — the search pipeline then filters notes to that top_dir.
+    queryRef.current = name;
+    setQuery(name);
+    if (isCompact) setCompactPane('list');
+  };
+
   const handleQueryChange = (value: string) => {
     startTransition(() => setQuery(value));
     if (isCompact && compactPane === 'detail') {
@@ -221,7 +241,17 @@ function AppContent() {
               <View style={styles.desktopSearchBar}>
                 <SearchField query={query} onChangeText={handleQueryChange} />
               </View>
-              {renderListPane({ appState, errorMessage, items, query, selectedPath, onSelect: handleSelect, isCompact })}
+              {renderListPane({
+                appState,
+                errorMessage,
+                items,
+                categories,
+                onCategorySelect: handleCategorySelect,
+                query,
+                selectedPath,
+                onSelect: handleSelect,
+                isCompact,
+              })}
             </View>
             <View style={styles.detailPane}>
               {renderDetailPane({ appState, detailLoading, note: selectedNote, isCompact })}
@@ -235,6 +265,8 @@ function AppContent() {
               appState,
               errorMessage,
               items,
+              categories,
+              onCategorySelect: handleCategorySelect,
               query,
               selectedPath,
               onSelect: handleSelect,
@@ -328,13 +360,26 @@ function renderListPane(args: {
   appState: AppState;
   errorMessage: string;
   items: NoteListItem[];
+  categories: Category[];
+  onCategorySelect: (name: string) => void;
   query: string;
   selectedPath: string | null;
   onSelect: (path: string) => void;
   isCompact: boolean;
   extraBottomPadding?: number;
 }) {
-  const { appState, errorMessage, items, query, selectedPath, onSelect, isCompact, extraBottomPadding = 0 } = args;
+  const {
+    appState,
+    errorMessage,
+    items,
+    categories,
+    onCategorySelect,
+    query,
+    selectedPath,
+    onSelect,
+    isCompact,
+    extraBottomPadding = 0,
+  } = args;
   if (appState === 'loading') {
     return (
       <View style={styles.centerState}>
@@ -349,10 +394,14 @@ function renderListPane(args: {
       </View>
     );
   }
+  // Empty query → show the category picker instead of a note list
+  if (!query.trim()) {
+    return <CategoryList categories={categories} onSelect={onCategorySelect} />;
+  }
   if (items.length === 0) {
     return (
       <View style={styles.centerState}>
-        <Text style={styles.emptyText}>{query.trim() ? 'No matches' : 'No notes'}</Text>
+        <Text style={styles.emptyText}>No matches</Text>
       </View>
     );
   }

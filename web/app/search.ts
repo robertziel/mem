@@ -1,4 +1,4 @@
-import type { NoteSummary, SearchResult, SeedNote } from './types';
+import type { Category, NoteSummary, SearchResult, SeedNote } from './types';
 
 type SearchMatch = {
   top_dir_matches: number;
@@ -22,6 +22,25 @@ export function listNotesFromSeed(notes: SeedNote[], limit: number): NoteSummary
     .sort((left, right) => right.mtime_epoch - left.mtime_epoch)
     .slice(0, limit)
     .map(toSummary);
+}
+
+/**
+ * Group seeded notes by their top-level directory (lower-cased) and
+ * return `{name, count}` rows sorted by count desc, then name asc.
+ * Notes with no top_dir (root-level files) are ignored.
+ */
+export function listCategoriesFromSeed(notes: SeedNote[]): Category[] {
+  const counts = new Map<string, number>();
+  for (const note of notes) {
+    const raw = note.path_parts?.top_dir;
+    if (typeof raw !== 'string') continue;
+    const name = raw.trim().toLowerCase();
+    if (!name) continue;
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
 export function searchNotesFromSeed(notes: SeedNote[], query: string): SearchResult[] {

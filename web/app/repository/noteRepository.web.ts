@@ -1,6 +1,6 @@
 import { openDB } from 'idb';
 
-import { listNotesFromSeed, searchNotesFromSeed } from '../../app/search';
+import { listCategoriesFromSeed, listNotesFromSeed, searchNotesFromSeed } from '../../app/search';
 import type { NoteRepository, SeedMeta, SeedNote, SeedPayload } from '../../app/types';
 
 const DB_NAME = 'mem-local-notes';
@@ -74,6 +74,9 @@ export const noteRepository: NoteRepository = {
   },
   async listNotes(limit) {
     return listNotesFromSeed(await getAllNotes(), limit);
+  },
+  async listCategories() {
+    return listCategoriesFromSeed(await getAllNotes());
   },
   async searchNotes(query) {
     return searchNotesFromSeed(await getAllNotes(), query);

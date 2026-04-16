@@ -39,9 +39,17 @@ export type NoteListItem = NoteSummary & {
   preview?: string;
 };
 
+export type Category = {
+  /** Canonical (lower-cased) top-level directory. */
+  name: string;
+  /** How many seeded notes live under this top_dir. */
+  count: number;
+};
+
 export interface NoteRepository {
   initialize(): Promise<SeedMeta>;
   listNotes(limit: number): Promise<NoteSummary[]>;
+  listCategories(): Promise<Category[]>;
   searchNotes(query: string): Promise<SearchResult[]>;
   getNote(path: string): Promise<SeedNote | null>;
 }

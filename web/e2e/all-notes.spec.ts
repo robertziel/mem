@@ -19,10 +19,18 @@ test('clicking every visible note row opens without runtime errors', async ({ pa
   page.on('pageerror', (err) => pageErrors.push(err.message));
 
   await page.goto('/');
-  await expect(page.getByRole('button').first()).toBeVisible();
+  await expect(page.getByPlaceholder('Search')).toBeVisible();
 
-  const rowRole = page.getByRole('button', { name: /^Open / });
-  await expect(rowRole.first()).toBeVisible();
+  // Empty query now shows the category picker. Tap the first category
+  // to populate the list with notes.
+  const firstCategory = page.getByRole('button', { name: /^Open category / }).first();
+  await firstCategory.waitFor({ state: 'visible', timeout: 10000 });
+  await firstCategory.click();
+
+  // Match only note rows (exclude the category "Open category ..." ones)
+  const noteRows = page.locator('[role="button"][aria-label^="Open "]:not([aria-label^="Open category"])');
+  await expect(noteRows.first()).toBeVisible({ timeout: 5000 });
+  const rowRole = noteRows;
 
   const total = await rowRole.count();
   expect(total).toBeGreaterThan(20);

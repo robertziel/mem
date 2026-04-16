@@ -92,7 +92,7 @@ test.describe('Search', () => {
 
   test('the Back button on mobile returns from detail to list', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    await gotoApp(page);
+    await searchFor(page, 'docker compose');
     await page
       .getByRole('button')
       .filter({ has: page.getByText(/\.md$/) })
