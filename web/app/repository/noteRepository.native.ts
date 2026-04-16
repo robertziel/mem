@@ -1,6 +1,11 @@
 import * as SQLite from 'expo-sqlite';
 
-import { listCategoriesFromSeed, listNotesFromSeed, searchNotesFromSeed } from '../../app/search';
+import {
+  browseDirectoryFromSeed,
+  listCategoriesFromSeed,
+  listNotesFromSeed,
+  searchNotesFromSeed,
+} from '../../app/search';
 import type { NoteRepository, SeedMeta, SeedNote, SeedPayload } from '../../app/types';
 
 const bundledSeed = require('../../assets/generated/seed.json') as SeedPayload;
@@ -114,6 +119,9 @@ export const noteRepository: NoteRepository = {
   },
   async listCategories() {
     return listCategoriesFromSeed(await getAllNotes());
+  },
+  async browseDirectory(terms) {
+    return browseDirectoryFromSeed(await getAllNotes(), terms);
   },
   async searchNotes(query) {
     return searchNotesFromSeed(await getAllNotes(), query);

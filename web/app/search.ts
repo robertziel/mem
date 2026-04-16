@@ -1,4 +1,4 @@
-import type { Category, NoteSummary, SearchResult, SeedNote } from './types';
+import type { Category, DirectoryView, NoteSummary, SearchResult, SeedNote } from './types';
 
 type SearchMatch = {
   top_dir_matches: number;
@@ -22,6 +22,72 @@ export function listNotesFromSeed(notes: SeedNote[], limit: number): NoteSummary
     .sort((left, right) => right.mtime_epoch - left.mtime_epoch)
     .slice(0, limit)
     .map(toSummary);
+}
+
+/**
+ * If the user's search terms exactly match an existing directory path
+ * prefix (segment-for-segment), return the contents of that directory:
+ * immediate child subdirs (with counts) and files that live directly
+ * in the dir. Returns null when no note matches the full prefix — the
+ * caller then falls back to the regular search flow.
+ *
+ * Matching is case-insensitive but requires FULL segment equality. A
+ * term that is merely a prefix of a directory name (e.g. "meta" vs
+ * "metaprogramming") does not qualify.
+ */
+export function browseDirectoryFromSeed(
+  notes: SeedNote[],
+  rawTerms: string[],
+): DirectoryView | null {
+  const terms = rawTerms.map((t) => t.trim().toLowerCase()).filter(Boolean);
+  if (terms.length === 0) return null;
+
+  const subdirCounts = new Map<string, number>();
+  const files: NoteSummary[] = [];
+  let anyMatch = false;
+
+  for (const note of notes) {
+    const topDir = (note.path_parts.top_dir ?? '').toLowerCase();
+    const subs = (note.path_parts.subdirs ?? []).map((s) => (s ?? '').toLowerCase());
+    const segments = topDir ? [topDir, ...subs] : subs;
+    if (segments.length < terms.length) continue;
+
+    let matches = true;
+    for (let i = 0; i < terms.length; i += 1) {
+      if (segments[i] !== terms[i]) {
+        matches = false;
+        break;
+      }
+    }
+    if (!matches) continue;
+    anyMatch = true;
+
+    if (segments.length === terms.length) {
+      files.push({
+        path: note.path,
+        title: note.title,
+        mtime: note.mtime,
+        mtime_epoch: note.mtime_epoch,
+      });
+    } else {
+      const childSubdir = segments[terms.length];
+      if (childSubdir) {
+        subdirCounts.set(childSubdir, (subdirCounts.get(childSubdir) ?? 0) + 1);
+      }
+    }
+  }
+
+  if (!anyMatch) return null;
+
+  const subdirs: Category[] = Array.from(subdirCounts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+
+  return {
+    path: terms.join('/'),
+    subdirs,
+    notes: files.sort((a, b) => b.mtime_epoch - a.mtime_epoch),
+  };
 }
 
 /**

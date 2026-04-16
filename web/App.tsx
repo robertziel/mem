@@ -18,13 +18,14 @@ import {
 } from 'react-native-safe-area-context';
 
 import { CategoryList } from './app/components/CategoryList';
+import { DirectoryBrowser } from './app/components/DirectoryBrowser';
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
 import { useDebouncedValue } from './app/hooks/useDebouncedValue';
 import { keyboardClearance, useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
-import type { Category, NoteListItem, SeedNote } from './app/types';
+import type { Category, DirectoryView, NoteListItem, SeedNote } from './app/types';
 
 type AppState = 'loading' | 'ready' | 'error';
 type CompactPane = 'list' | 'detail';
@@ -65,6 +66,7 @@ function AppContent() {
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<NoteListItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [directoryView, setDirectoryView] = useState<DirectoryView | null>(null);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [selectedNote, setSelectedNote] = useState<SeedNote | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -163,13 +165,26 @@ function AppContent() {
   useEffect(() => {
     if (appState !== 'ready') return;
     // When the query is empty we show the category picker instead of a
-    // note list; no fetch needed.
+    // note list or directory browser; no fetch needed.
     if (!debouncedQuery.trim()) {
       setItems([]);
+      setDirectoryView(null);
       return;
     }
     let active = true;
     async function loadItems() {
+      const terms = debouncedQuery.trim().split(/\s+/).filter(Boolean);
+      // 1) If the query exactly matches an existing directory path
+      //    prefix, enter directory-browse mode (subdirs + files).
+      const dir = await noteRepository.browseDirectory(terms);
+      if (!active) return;
+      if (dir !== null) {
+        setDirectoryView(dir);
+        setItems([]);
+        return;
+      }
+      // 2) Otherwise fall back to the regular search flow.
+      setDirectoryView(null);
       const next = await noteRepository.searchNotes(debouncedQuery);
       if (!active) return;
       setItems(next);
@@ -224,6 +239,15 @@ function AppContent() {
     if (isCompact) setCompactPane('list');
   };
 
+  const handleSubdirSelect = (name: string) => {
+    // Append the child subdir to the current query so we descend one
+    // level in the directory browser. The normalized query is "ruby
+    // metaprogramming" → choose "prepend" → "ruby metaprogramming prepend".
+    const nextQuery = `${query.trim()} ${name}`.trim();
+    queryRef.current = nextQuery;
+    setQuery(nextQuery);
+  };
+
   const handleQueryChange = (value: string) => {
     startTransition(() => setQuery(value));
     if (isCompact && compactPane === 'detail') {
@@ -247,6 +271,8 @@ function AppContent() {
                 items,
                 categories,
                 onCategorySelect: handleCategorySelect,
+                directoryView,
+                onSubdirSelect: handleSubdirSelect,
                 query,
                 selectedPath,
                 onSelect: handleSelect,
@@ -267,6 +293,8 @@ function AppContent() {
               items,
               categories,
               onCategorySelect: handleCategorySelect,
+              directoryView,
+              onSubdirSelect: handleSubdirSelect,
               query,
               selectedPath,
               onSelect: handleSelect,
@@ -362,6 +390,8 @@ function renderListPane(args: {
   items: NoteListItem[];
   categories: Category[];
   onCategorySelect: (name: string) => void;
+  directoryView: DirectoryView | null;
+  onSubdirSelect: (name: string) => void;
   query: string;
   selectedPath: string | null;
   onSelect: (path: string) => void;
@@ -374,6 +404,8 @@ function renderListPane(args: {
     items,
     categories,
     onCategorySelect,
+    directoryView,
+    onSubdirSelect,
     query,
     selectedPath,
     onSelect,
@@ -397,6 +429,17 @@ function renderListPane(args: {
   // Empty query → show the category picker instead of a note list
   if (!query.trim()) {
     return <CategoryList categories={categories} onSelect={onCategorySelect} />;
+  }
+  // Query matches an existing directory path prefix → directory browser
+  if (directoryView) {
+    return (
+      <DirectoryBrowser
+        view={directoryView}
+        onSubdirSelect={onSubdirSelect}
+        onNoteSelect={onSelect}
+        extraBottomPadding={extraBottomPadding}
+      />
+    );
   }
   if (items.length === 0) {
     return (

@@ -28,12 +28,15 @@ test.describe('Search', () => {
   });
 
   test('highlights matched terms in the list rows', async ({ page }) => {
-    await searchFor(page, 'ruby metaprogramming');
+    // Use a query that does NOT exactly match a directory path (to
+    // avoid switching into DirectoryBrowser mode) so we exercise the
+    // flat-search list rows with keyword highlighting.
+    await searchFor(page, 'metaprogramming method');
     // Wait for at least one filtered row to appear (debounced search)
     await expect(
       page
         .getByRole('button')
-        .filter({ has: page.getByText('ruby/metaprogramming', { exact: false }) })
+        .filter({ has: page.getByText(/metaprogramming/) })
         .first(),
     ).toBeVisible({ timeout: 10000 });
     // highlight() wraps each matched term in its own <span>. Poll because
@@ -48,7 +51,7 @@ test.describe('Search', () => {
           ),
         { timeout: 5000 },
       )
-      .toEqual(expect.arrayContaining(['ruby', 'metaprogramming']));
+      .toEqual(expect.arrayContaining(['metaprogramming', 'method']));
   });
 
   test('non-matching query yields zero note rows', async ({ page }) => {

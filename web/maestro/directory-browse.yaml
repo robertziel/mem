@@ -1,0 +1,32 @@
+appId: com.anonymous.mem
+name: Directory browsing (exact path prefix → subdirs + files)
+---
+- runFlow: common/setup.yaml
+
+# 1. Empty search → category picker is visible
+- assertVisible:
+    id: "open-category-*"
+
+# 2. Type an exact top-level directory name: "ruby"
+- tapOn:
+    id: "search-input"
+- inputText: "ruby"
+# Give the 500ms debounce time to resolve, plus one frame for render.
+- extendedWaitUntil:
+    visible:
+      id: "open-subdir-*"
+    timeout: 3000
+
+# 3. Tap the first subdir → query becomes "ruby <subdir>" and we drill
+- tapOn:
+    index: 0
+    id: "open-subdir-*"
+- extendedWaitUntil:
+    visible: "ruby"
+    timeout: 2000
+
+# 4. Clearing the search (Clean button) returns us to the category picker
+- tapOn:
+    id: "clean-button"
+- assertVisible:
+    id: "open-category-*"

@@ -46,10 +46,24 @@ export type Category = {
   count: number;
 };
 
+/**
+ * Shape returned when the user's query exactly matches an existing path
+ * prefix (ie. they are browsing a directory rather than running a search).
+ */
+export type DirectoryView = {
+  /** Canonical slash-joined path matched by the query (e.g. "ruby/metaprogramming"). */
+  path: string;
+  /** Immediate child directories of this path, with note counts. */
+  subdirs: Category[];
+  /** Notes that live directly at this path (no further subdir nesting). */
+  notes: NoteSummary[];
+};
+
 export interface NoteRepository {
   initialize(): Promise<SeedMeta>;
   listNotes(limit: number): Promise<NoteSummary[]>;
   listCategories(): Promise<Category[]>;
+  browseDirectory(terms: string[]): Promise<DirectoryView | null>;
   searchNotes(query: string): Promise<SearchResult[]>;
   getNote(path: string): Promise<SeedNote | null>;
 }

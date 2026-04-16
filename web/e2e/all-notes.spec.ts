@@ -21,19 +21,16 @@ test('clicking every visible note row opens without runtime errors', async ({ pa
   await page.goto('/');
   await expect(page.getByPlaceholder('Search')).toBeVisible();
 
-  // Empty query now shows the category picker. Tap the first category
-  // to populate the list with notes.
-  const firstCategory = page.getByRole('button', { name: /^Open category / }).first();
-  await firstCategory.waitFor({ state: 'visible', timeout: 10000 });
-  await firstCategory.click();
-
-  // Match only note rows (exclude the category "Open category ..." ones)
+  // Empty query shows the category picker and exact directory-prefix
+  // queries show the directory browser. Use a flat-search query (a
+  // filename keyword, not a top-level dir name) to populate the list.
+  await page.getByPlaceholder('Search').fill('hooks');
   const noteRows = page.locator('[role="button"][aria-label^="Open "]:not([aria-label^="Open category"])');
-  await expect(noteRows.first()).toBeVisible({ timeout: 5000 });
+  await expect(noteRows.first()).toBeVisible({ timeout: 10000 });
   const rowRole = noteRows;
 
   const total = await rowRole.count();
-  expect(total).toBeGreaterThan(20);
+  expect(total).toBeGreaterThan(1);
 
   const limit = Math.min(total, Number(process.env.PLAYWRIGHT_SMOKE_LIMIT ?? total));
 
