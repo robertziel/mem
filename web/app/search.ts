@@ -94,53 +94,61 @@ function classifySearchMatch(note: SeedNote, terms: string[]): SearchMatch | nul
   let topDirMatches = 0;
   let subdirMatches = 0;
   let filenameMatches = 0;
-  let contentMatches = 0;
-  const contentPositions: number[] = [];
 
   const topDir = note.path_parts.top_dir;
   const subdirs = note.path_parts.subdirs;
   const filenameStem = note.path_parts.filename_stem;
   const filenameKeywords = note.path_parts.filename_keywords;
-  const textLower = note.preview_source.toLowerCase();
 
   for (const term of terms) {
-    if (topDir && topDir.includes(term)) {
-      topDirMatches += 1;
+    // Prefer exact keyword matches over substring matches to avoid
+    // common-word noise (e.g. "let" matching "letter" or "palette").
+    // A "keyword" is a dir segment or filename stem token.
+    const exactKeywordMatch =
+      filenameKeywords.includes(term) ||
+      subdirs.includes(term) ||
+      topDir === term;
+
+    if (exactKeywordMatch) {
+      if (filenameKeywords.includes(term)) {
+        filenameMatches += 1;
+      } else if (subdirs.includes(term)) {
+        subdirMatches += 1;
+      } else {
+        topDirMatches += 1;
+      }
       continue;
     }
 
-    if (subdirs.some((subdir) => subdir.includes(term))) {
-      subdirMatches += 1;
-      continue;
+    // Fall back to substring match only if the term is long enough to be
+    // distinctive (>= 4 chars) — avoids "let", "api", "is", etc. matching
+    // unrelated notes.
+    if (term.length >= 4) {
+      if (topDir && topDir.includes(term)) {
+        topDirMatches += 1;
+        continue;
+      }
+      if (subdirs.some((subdir) => subdir.includes(term))) {
+        subdirMatches += 1;
+        continue;
+      }
+      if (filenameStem.includes(term) || filenameKeywords.some((keyword) => keyword.includes(term))) {
+        filenameMatches += 1;
+        continue;
+      }
     }
 
-    if (filenameStem.includes(term) || filenameKeywords.some((keyword) => keyword.includes(term))) {
-      filenameMatches += 1;
-      continue;
-    }
-
-    const position = textLower.indexOf(term);
-    if (position >= 0) {
-      contentMatches += 1;
-      contentPositions.push(position);
-      continue;
-    }
-
+    // No match in path/filename — reject the note entirely (no content fallback).
     return null;
   }
-
-  const lineNum =
-    contentPositions.length > 0
-      ? textLower.slice(0, Math.min(...contentPositions)).split('\n').length - 1
-      : null;
 
   return {
     top_dir_matches: topDirMatches,
     subdir_matches: subdirMatches,
     filename_matches: filenameMatches,
-    content_matches: contentMatches,
-    score: topDirMatches * 1000 + subdirMatches * 100 + filenameMatches * 10 + contentMatches,
-    sort_key: [topDirMatches, subdirMatches, filenameMatches, contentMatches],
-    line_num: lineNum,
+    content_matches: 0,
+    score: topDirMatches * 1000 + subdirMatches * 100 + filenameMatches * 10,
+    sort_key: [topDirMatches, subdirMatches, filenameMatches, 0],
+    line_num: null,
   };
 }
