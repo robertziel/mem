@@ -101,9 +101,8 @@ function classifySearchMatch(note: SeedNote, terms: string[]): SearchMatch | nul
   const filenameKeywords = note.path_parts.filename_keywords;
 
   for (const term of terms) {
-    // Prefer exact keyword matches over substring matches to avoid
-    // common-word noise (e.g. "let" matching "letter" or "palette").
-    // A "keyword" is a dir segment or filename stem token.
+    // 1) Exact keyword match — highest priority.
+    //    A "keyword" is a single dir segment or filename stem token.
     const exactKeywordMatch =
       filenameKeywords.includes(term) ||
       subdirs.includes(term) ||
@@ -120,9 +119,27 @@ function classifySearchMatch(note: SeedNote, terms: string[]): SearchMatch | nul
       continue;
     }
 
-    // Fall back to substring match only if the term is long enough to be
-    // distinctive (>= 4 chars) — avoids "let", "api", "is", etc. matching
-    // unrelated notes.
+    // 2) Prefix match on any keyword — lets partial typing work
+    //    (e.g. "rub" matches "ruby", "met" matches "method").
+    //    Prefix, NOT arbitrary substring, so short common tokens like
+    //    "let" do NOT match "singleton" / "delete" / "palette" — only
+    //    keywords that actually start with the term.
+    if (topDir && topDir.startsWith(term)) {
+      topDirMatches += 1;
+      continue;
+    }
+    if (subdirs.some((subdir) => subdir.startsWith(term))) {
+      subdirMatches += 1;
+      continue;
+    }
+    if (filenameKeywords.some((keyword) => keyword.startsWith(term))) {
+      filenameMatches += 1;
+      continue;
+    }
+
+    // 3) For longer terms (>= 4 chars), allow mid-keyword substring
+    //    match too — catches compound words the tokenizer didn't split
+    //    (e.g. "graphql" inside a stem).
     if (term.length >= 4) {
       if (topDir && topDir.includes(term)) {
         topDirMatches += 1;
@@ -138,7 +155,7 @@ function classifySearchMatch(note: SeedNote, terms: string[]): SearchMatch | nul
       }
     }
 
-    // No match in path/filename — reject the note entirely (no content fallback).
+    // No match for this term → reject the note.
     return null;
   }
 
