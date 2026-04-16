@@ -4,6 +4,8 @@ web/node_modules/
 web/dist/
 web/test-results/
 web/playwright-report/
+test-results/
+playwright-report/
 .claude/
 # Expo dev artifacts (regenerate via `npx expo prebuild` / `run`)
 web/.expo/
