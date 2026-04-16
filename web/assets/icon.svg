@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Warm Claude earth-tone palette -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#184540"/>
+      <stop offset="1" stop-color="#0c211d"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff4df"/>
+      <stop offset="1" stop-color="#f6d38a"/>
+    </linearGradient>
+    <filter id="innerGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+      <feOffset dx="0" dy="6" result="offsetBlur"/>
+      <feFlood flood-color="#f6d38a" flood-opacity="0.15"/>
+      <feComposite in2="offsetBlur" operator="in"/>
+      <feComposite in="SourceGraphic" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- iOS-friendly full-bleed background (iOS masks corners automatically) -->
+  <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Subtle parchment swatch behind the letter, evokes a note -->
+  <rect x="192" y="208" width="640" height="608" rx="52" ry="52"
+        fill="#fffaf0" fill-opacity="0.08"/>
+
+  <!-- Thin gold rule above the letter, like a memo divider -->
+  <rect x="280" y="336" width="464" height="6" rx="3" fill="#f6d38a" fill-opacity="0.55"/>
+
+  <!-- Serif lowercase "m" — handcrafted path in a didone-ish style -->
+  <!-- viewBox center is 512; letter sits centered in x, slightly below rule -->
+  <g fill="url(#letter)" transform="translate(512 700)">
+    <!-- We build the "m" from 2 strokes + 2 serifs, drawn as a single path
+         so the gradient fills smoothly. Width ≈ 560, height ≈ 320. -->
+    <path d="
+      M -280 0
+      L -280 -280
+      L -220 -280
+      L -220 -240
+      C -200 -270, -160 -288, -120 -288
+      C -70 -288, -30 -262, -10 -220
+      C 10 -262, 60 -288, 110 -288
+      C 180 -288, 220 -252, 220 -180
+      L 220 -30
+      C 220 -14, 224 -6, 240 -4
+      L 280 0
+      L 280 20
+      L 100 20
+      L 100 0
+      L 120 -4
+      C 136 -6, 140 -14, 140 -30
+      L 140 -180
+      C 140 -222, 120 -246, 86 -246
+      C 58 -246, 34 -230, 8 -200
+      L 8 -30
+      C 8 -14, 12 -6, 28 -4
+      L 68 0
+      L 68 20
+      L -112 20
+      L -112 0
+      L -92 -4
+      C -76 -6, -72 -14, -72 -30
+      L -72 -180
+      C -72 -222, -92 -246, -126 -246
+      C -154 -246, -178 -230, -204 -200
+      L -204 -30
+      C -204 -14, -200 -6, -184 -4
+      L -164 0
+      L -164 20
+      L -320 20
+      L -320 0
+      Z
+    " transform="scale(0.9) translate(0 40)"/>
+  </g>
+
+  <!-- Small gold dot, representing the "searchable index" nature of the app -->
+  <circle cx="512" cy="832" r="8" fill="#f6d38a"/>
+</svg>
