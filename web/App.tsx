@@ -171,11 +171,11 @@ export default function App() {
               accessibilityRole="button"
               onPress={cleanSearch}
               style={({ pressed }: { pressed?: boolean }) => [
-                styles.toolbarButton,
+                styles.textButton,
                 pressed ? styles.toolbarButtonPressed : null,
               ]}
             >
-              <Text style={styles.toolbarButtonText}>Clean</Text>
+              <Text style={styles.textButtonLabel}>Clean</Text>
             </Pressable>
             {compactPane === 'detail' && (
               <Pressable
@@ -422,6 +422,22 @@ const styles = StyleSheet.create({
     height: 36,
     justifyContent: 'center',
     width: 36,
+  },
+  textButton: {
+    alignItems: 'center',
+    backgroundColor: palette.surface,
+    borderColor: palette.borderStrong,
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  textButtonLabel: {
+    color: palette.accent,
+    fontFamily: systemFont,
+    fontSize: 14,
+    fontWeight: '600',
   },
   toolbarButtonPressed: {
     opacity: 0.5,
