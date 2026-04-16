@@ -43,8 +43,16 @@ Navigation:
 - **Tap a subdir** → appends its name to the query, drills one level
   deeper.
 - **Tap a note** → opens the detail view (markdown + keyword chips).
-- **Clean** → empties the query, returns to the CategoryList root,
-  refocuses the input.
+- **Filter chips** (flat-search mode only) → a horizontal, scrollable
+  row above the results. `All` clears any filter. Option chips (e.g.
+  `frontend (5)`) narrow to notes under that directory. Breadcrumb
+  chips (e.g. `frontend ›`) pop back to that depth. If only one
+  option remains at the current depth the bar auto-drills deeper,
+  possibly across several levels in one tap. Editing the query resets
+  the filter.
+- **Clear query** → inline `✕` inside the search pill clears the query
+  and returns to the CategoryList root. (The standalone Clean button
+  was removed; the inline glyph handles it.)
 - **Back (`‹`)** → hidden at root. From detail view it returns to the
   list. Otherwise it strips the last segment of the query
   (`stripLastQuerySegment`) so the user walks one level up.

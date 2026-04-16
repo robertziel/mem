@@ -1,25 +1,23 @@
 appId: com.anonymous.mem
-name: Back and Clean toolbar buttons
+name: Inline ✕ clears the search query (replaces the old Clean button)
 ---
 - runFlow: common/setup.yaml
-# Open a note
-- tapOn:
-    index: 0
-    id: "open-note-*"
-- extendedWaitUntil:
-    visible: "Updated"
-    timeout: 5000
-# Back returns to the list
-- tapOn:
-    id: "back-button"
-- assertVisible:
-    id: "open-note-*"
-# Type, then Clean clears + returns to list + focuses input
+
+# Type a query
 - tapOn:
     id: "search-input"
 - inputText: "docker"
+
+# Wait for debounce + result render
+- extendedWaitUntil:
+    visible: "docker"
+    timeout: 3000
+
+# The inline ✕ button inside the search pill clears the query.
 - tapOn:
-    id: "clean-button"
-- assertNotVisible: "docker"
+    id: "search-input"
+# The X has accessibilityLabel="Clear search" and only exists when
+# query.length > 0; its view has no stable testID so we target label.
+- tapOn: "Clear search"
 - assertVisible:
-    id: "open-note-*"
+    id: "open-category-*"

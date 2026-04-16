@@ -1,0 +1,31 @@
+appId: com.anonymous.mem
+name: Filter chips narrow flat-search results
+---
+- runFlow: common/setup.yaml
+
+# Type a keyword that hits multiple top_dirs
+- tapOn:
+    id: "search-input"
+- inputText: "hooks"
+
+# Wait for debounced search + chip bar render
+- extendedWaitUntil:
+    visible:
+      id: "filter-clear"
+    timeout: 5000
+
+# Tap the first filter option
+- tapOn:
+    id: "filter-option-*"
+
+# A breadcrumb pop chip must now appear
+- extendedWaitUntil:
+    visible:
+      id: "filter-pop-*"
+    timeout: 3000
+
+# Clear filter drops the breadcrumb
+- tapOn:
+    id: "filter-clear"
+- assertNotVisible:
+    id: "filter-pop-*"

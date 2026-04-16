@@ -19,13 +19,14 @@ import {
 
 import { CategoryList } from './app/components/CategoryList';
 import { DirectoryBrowser } from './app/components/DirectoryBrowser';
+import { FilterChips } from './app/components/FilterChips';
 import { MarkdownRenderer } from './app/components/MarkdownRenderer';
 import { NoteKeywords } from './app/components/NoteKeywords';
 import { NoteList } from './app/components/NoteList';
 import { useDebouncedValue } from './app/hooks/useDebouncedValue';
 import { keyboardClearance, useKeyboardInset } from './app/hooks/useKeyboardInset';
 import { noteRepository } from './app/repository';
-import { stripLastQuerySegment } from './app/search';
+import { applyPathFilter, drillOptions, stripLastQuerySegment } from './app/search';
 import type { Category, DirectoryView, NoteListItem, SeedNote } from './app/types';
 
 type AppState = 'loading' | 'ready' | 'error';
@@ -72,6 +73,7 @@ function AppContent() {
   const [selectedNote, setSelectedNote] = useState<SeedNote | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [compactPane, setCompactPane] = useState<CompactPane>('list');
+  const [pathFilter, setPathFilter] = useState<string[]>([]);
   const keyboardInset = useKeyboardInset();
   // Lift the bottom bar so it sits FLUSH on top of the iOS keyboard,
   // subtracting the home-indicator safe-area inset (SafeAreaView already
@@ -165,6 +167,8 @@ function AppContent() {
 
   useEffect(() => {
     if (appState !== 'ready') return;
+    // New query → reset the filter chips so the user starts fresh.
+    setPathFilter([]);
     // When the query is empty we show the category picker instead of a
     // note list or directory browser; no fetch needed.
     if (!debouncedQuery.trim()) {
@@ -196,6 +200,17 @@ function AppContent() {
     void loadItems();
     return () => { active = false; };
   }, [appState, debouncedQuery, selectedPath]);
+
+  // Derived filter state: auto-drill through single-child dirs in the
+  // flat-search results and produce the set of next-level options.
+  const drill = drillOptions(items, pathFilter);
+  // If auto-drill grew the filter, persist it so the breadcrumb reflects it.
+  useEffect(() => {
+    if (drill.pathFilter.length !== pathFilter.length) {
+      setPathFilter(drill.pathFilter);
+    }
+  }, [drill.pathFilter, pathFilter.length]);
+  const filteredItems = applyPathFilter(items, drill.pathFilter);
 
   useEffect(() => {
     if (!selectedPath || appState !== 'ready') {
@@ -233,12 +248,6 @@ function AppContent() {
     setQuery(nextQuery);
   };
 
-  const cleanSearch = () => {
-    setQuery('');
-    setCompactPane('list');
-    requestAnimationFrame(() => searchInputRef.current?.focus());
-  };
-
   const handleSelect = (path: string) => {
     setSelectedPath(path);
     if (isCompact) setCompactPane('detail');
@@ -261,6 +270,14 @@ function AppContent() {
     setQuery(nextQuery);
   };
 
+  const handlePickFilter = (name: string) => {
+    setPathFilter((prev) => [...prev, name]);
+  };
+  const handlePopFilter = (depth: number) => {
+    setPathFilter((prev) => prev.slice(0, depth));
+  };
+  const handleClearFilter = () => setPathFilter([]);
+
   const handleQueryChange = (value: string) => {
     startTransition(() => setQuery(value));
     if (isCompact && compactPane === 'detail') {
@@ -281,11 +298,16 @@ function AppContent() {
               {renderListPane({
                 appState,
                 errorMessage,
-                items,
+                items: filteredItems,
                 categories,
                 onCategorySelect: handleCategorySelect,
                 directoryView,
                 onSubdirSelect: handleSubdirSelect,
+                filterBreadcrumb: drill.pathFilter,
+                filterOptions: drill.options,
+                onPickFilter: handlePickFilter,
+                onPopFilter: handlePopFilter,
+                onClearFilter: handleClearFilter,
                 query,
                 selectedPath,
                 onSelect: handleSelect,
@@ -303,11 +325,16 @@ function AppContent() {
             {renderListPane({
               appState,
               errorMessage,
-              items,
+              items: filteredItems,
               categories,
               onCategorySelect: handleCategorySelect,
               directoryView,
               onSubdirSelect: handleSubdirSelect,
+              filterBreadcrumb: drill.pathFilter,
+              filterOptions: drill.options,
+              onPickFilter: handlePickFilter,
+              onPopFilter: handlePopFilter,
+              onClearFilter: handleClearFilter,
               query,
               selectedPath,
               onSelect: handleSelect,
@@ -333,18 +360,6 @@ function AppContent() {
             <View style={styles.bottomSearchWrap}>
               <SearchField query={query} onChangeText={handleQueryChange} inputRef={searchInputRef} />
             </View>
-            <Pressable
-              accessibilityLabel="Clear search and focus"
-              accessibilityRole="button"
-              testID="clean-button"
-              onPress={cleanSearch}
-              style={({ pressed }: { pressed?: boolean }) => [
-                styles.textButton,
-                pressed ? styles.toolbarButtonPressed : null,
-              ]}
-            >
-              <Text style={styles.textButtonLabel}>Clean</Text>
-            </Pressable>
             {(compactPane === 'detail' || query.trim() !== '') && (
               <Pressable
                 accessibilityLabel="Back to list"
@@ -405,6 +420,11 @@ function renderListPane(args: {
   onCategorySelect: (name: string) => void;
   directoryView: DirectoryView | null;
   onSubdirSelect: (name: string) => void;
+  filterBreadcrumb: string[];
+  filterOptions: Category[];
+  onPickFilter: (name: string) => void;
+  onPopFilter: (depth: number) => void;
+  onClearFilter: () => void;
   query: string;
   selectedPath: string | null;
   onSelect: (path: string) => void;
@@ -419,6 +439,11 @@ function renderListPane(args: {
     onCategorySelect,
     directoryView,
     onSubdirSelect,
+    filterBreadcrumb,
+    filterOptions,
+    onPickFilter,
+    onPopFilter,
+    onClearFilter,
     query,
     selectedPath,
     onSelect,
@@ -454,22 +479,37 @@ function renderListPane(args: {
       />
     );
   }
+  const chipBar = (
+    <FilterChips
+      breadcrumb={filterBreadcrumb}
+      options={filterOptions}
+      onPickOption={onPickFilter}
+      onPopBreadcrumb={onPopFilter}
+      onClearAll={onClearFilter}
+    />
+  );
   if (items.length === 0) {
     return (
-      <View style={styles.centerState}>
-        <Text style={styles.emptyText}>No matches</Text>
+      <View style={{ flex: 1 }}>
+        {chipBar}
+        <View style={styles.centerState}>
+          <Text style={styles.emptyText}>No matches</Text>
+        </View>
       </View>
     );
   }
   return (
-    <NoteList
-      items={items}
-      onSelect={onSelect}
-      query={query}
-      selectedPath={selectedPath}
-      isCompact={isCompact}
-      extraBottomPadding={extraBottomPadding}
-    />
+    <View style={{ flex: 1 }}>
+      {chipBar}
+      <NoteList
+        items={items}
+        onSelect={onSelect}
+        query={query}
+        selectedPath={selectedPath}
+        isCompact={isCompact}
+        extraBottomPadding={extraBottomPadding}
+      />
+    </View>
   );
 }
 

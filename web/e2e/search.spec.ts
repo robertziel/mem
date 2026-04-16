@@ -61,19 +61,15 @@ test.describe('Search', () => {
     await expect(rowButtons).toHaveCount(0);
   });
 
-  test('the Clean button clears query, returns to list, and focuses the input (mobile)', async ({
-    page,
-  }) => {
+  test('the inline ✕ clears the search query (mobile)', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await searchFor(page, 'docker compose');
-    const firstRow = page.getByRole('button').filter({ has: page.getByText(/docker_compose/) }).first();
-    await firstRow.click();
-
-    const cleanBtn = page.getByRole('button', { name: 'Clear search and focus' });
-    await expect(cleanBtn).toBeVisible();
-    await cleanBtn.click();
-
-    await expect(page.getByPlaceholder('Search')).toBeFocused();
+    // The clear glyph lives inside the search pill when the query is
+    // non-empty. react-native-web renders the Pressable as a <div>
+    // with aria-label (no role="button"), so we match by label.
+    const clearBtn = page.getByLabel('Clear search');
+    await expect(clearBtn).toBeVisible();
+    await clearBtn.click();
     await expect(page.getByPlaceholder('Search')).toHaveValue('');
   });
 

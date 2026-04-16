@@ -128,7 +128,12 @@ determines which of three modes renders:
    Tapping a subdir appends its name to the query and drills one level
    deeper (`ruby` → `ruby metaprogramming` → `ruby metaprogramming prepend`).
 3. **Anything else → Flat search.** Ranked note rows with the matched
-   keywords highlighted in yellow across title / path / preview.
+   keywords highlighted in yellow across title / path / preview. Above
+   the rows, a horizontal, scrollable **filter chip bar** lets the
+   user narrow the results one directory at a time. Taps collapse
+   into the selected path as breadcrumb chips; the bar auto-drills
+   through single-child chains so the user always sees "choices that
+   actually split the result set".
 
 Mode transitions are instant; the derived search call is debounced 500 ms
 so rapid typing doesn't thrash.

@@ -25,8 +25,13 @@ test('clicking every visible note row opens without runtime errors', async ({ pa
   // queries show the directory browser. Use a flat-search query (a
   // filename keyword, not a top-level dir name) to populate the list.
   await page.getByPlaceholder('Search').fill('hooks');
-  const noteRows = page.locator('[role="button"][aria-label^="Open "]:not([aria-label^="Open category"])');
+  const noteRows = page.locator('[aria-label^="Open "]:not([aria-label^="Open category"])');
+  // Wait for at least one row to render (debounce + auto-drill can
+  // re-render once before the list stabilises).
   await expect(noteRows.first()).toBeVisible({ timeout: 10000 });
+  // Give the list one more moment to settle so count() doesn't race
+  // against a pending re-render.
+  await page.waitForTimeout(200);
   const rowRole = noteRows;
 
   const total = await rowRole.count();

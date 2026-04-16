@@ -109,6 +109,88 @@ export function browseDirectoryFromSeed(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Auto-drilling directory filter — used by the flat-search chip bar.
+// Works on any shape with a `.path` string (SeedNote, SearchResult, etc.)
+// so it can be applied either pre-search (on the raw corpus) or post-search
+// (on the ranked results).
+// ---------------------------------------------------------------------------
+
+type HasPath = { path: string };
+
+/** Lower-cased directory segments (top_dir + subdirs) for a path. */
+function dirSegments(path: string): string[] {
+  const parts = path.split('/');
+  if (parts.length <= 1) return [];
+  return parts.slice(0, -1).map((s) => s.toLowerCase());
+}
+
+/**
+ * Keep only items whose directory segments start with every segment of
+ * `pathFilter`, in order. Case-insensitive full-segment match. When
+ * `pathFilter` is empty this is the identity.
+ */
+export function applyPathFilter<T extends HasPath>(items: T[], pathFilter: string[]): T[] {
+  if (pathFilter.length === 0) return items;
+  const normalized = pathFilter.map((s) => s.toLowerCase());
+  return items.filter((item) => {
+    const segs = dirSegments(item.path);
+    if (segs.length < normalized.length) return false;
+    for (let i = 0; i < normalized.length; i += 1) {
+      if (segs[i] !== normalized[i]) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * Compute the effective filter + distinct next-depth options. Auto-drills
+ * deeper while the filtered set has exactly one option at the current
+ * depth, so repeated single-child chains collapse into a single pass.
+ *
+ * Returns:
+ *   pathFilter — possibly grown beyond the input filter by auto-drill
+ *   options    — {name, count} sorted by count desc, then name asc
+ */
+export function drillOptions<T extends HasPath>(
+  items: T[],
+  pathFilter: string[],
+): { pathFilter: string[]; options: Category[] } {
+  const filterCopy = [...pathFilter];
+  // Cap the loop defensively — even a pathologically deep tree can only
+  // drill as many times as the deepest item has directory segments.
+  const maxDepth = items.reduce(
+    (max, item) => Math.max(max, dirSegments(item.path).length),
+    0,
+  );
+
+  for (let step = 0; step <= maxDepth; step += 1) {
+    const filtered = applyPathFilter(items, filterCopy);
+    const depth = filterCopy.length;
+    const counts = new Map<string, number>();
+    for (const item of filtered) {
+      const segs = dirSegments(item.path);
+      const next = segs[depth];
+      if (!next) continue;
+      counts.set(next, (counts.get(next) ?? 0) + 1);
+    }
+
+    if (counts.size === 1) {
+      // Only one option — auto-drill into it and loop again.
+      const sole = counts.keys().next().value as string;
+      filterCopy.push(sole);
+      continue;
+    }
+
+    const options: Category[] = Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    return { pathFilter: filterCopy, options };
+  }
+
+  return { pathFilter: filterCopy, options: [] };
+}
+
 /**
  * Group seeded notes by their top-level directory (lower-cased) and
  * return `{name, count}` rows sorted by count desc, then name asc.
