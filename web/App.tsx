@@ -53,6 +53,62 @@ export default function App() {
   const [compactPane, setCompactPane] = useState<CompactPane>('list');
   const deferredQuery = useDeferredValue(query);
 
+  // Live mirrors so the global key listener can read the latest state
+  // without re-subscribing (React 19 StrictMode double-mounts effects;
+  // re-subscribing made the listener fire twice per key).
+  const queryRef = useRef(query);
+  queryRef.current = query;
+  const isCompactRef = useRef(isCompact);
+  isCompactRef.current = isCompact;
+  const compactPaneRef = useRef(compactPane);
+  compactPaneRef.current = compactPane;
+
+  // Global "type-to-search" — printable keystrokes (and Backspace) are
+  // routed into the search query state from anywhere on the page. We
+  // drive the input entirely from state (no native keystroke flow)
+  // which sidesteps the classic React controlled-input race against
+  // batched updates. Skipped only when a non-search input or textarea
+  // has focus, or when a modifier key (⌘/Ctrl/Alt) is down.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      const isOtherInput =
+        target &&
+        target !== (searchInputRef.current as unknown as HTMLElement) &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable);
+      if (isOtherInput) return;
+
+      const isPrintable = event.key.length === 1;
+      const isBackspace = event.key === 'Backspace';
+      if (!isPrintable && !isBackspace) return;
+
+      event.preventDefault();
+      const next = isBackspace
+        ? queryRef.current.slice(0, -1)
+        : queryRef.current + event.key;
+      queryRef.current = next;
+      setQuery(next);
+      // Defer focus to after React reconciles the TextInput re-render;
+      // calling .focus() inline can race against the re-render cycle
+      // (especially under StrictMode) and leave focus on document.body.
+      const ensureFocus = () => searchInputRef.current?.focus();
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(ensureFocus);
+      } else {
+        setTimeout(ensureFocus, 0);
+      }
+      if (isCompactRef.current && compactPaneRef.current === 'detail') {
+        setCompactPane('list');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   useEffect(() => {
     let active = true;
     async function initialize() {

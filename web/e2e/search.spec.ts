@@ -74,6 +74,22 @@ test.describe('Search', () => {
     await expect(page.getByPlaceholder('Search')).toHaveValue('');
   });
 
+  test('typing anywhere on the page types into the search input (global typeahead)', async ({ page }) => {
+    await gotoApp(page);
+    // Click outside the input (on an empty area of the body) to ensure
+    // focus is NOT already in the search pill when we start typing.
+    await page.locator('body').click({ position: { x: 10, y: 10 } });
+    // Press one keystroke at a time on the document.
+    await page.keyboard.type('rub');
+    await expect(page.getByPlaceholder('Search')).toHaveValue('rub');
+    // A space character flows through too
+    await page.keyboard.type(' meta');
+    await expect(page.getByPlaceholder('Search')).toHaveValue('rub meta');
+    // Backspace shortens the query by one
+    await page.keyboard.press('Backspace');
+    await expect(page.getByPlaceholder('Search')).toHaveValue('rub met');
+  });
+
   test('the Back button on mobile returns from detail to list', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoApp(page);
