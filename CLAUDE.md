@@ -88,7 +88,7 @@ A note qualifies as a true cheatsheet when **all three** are true:
 
 1. **Short and on-topic** — every line earns its place. No filler, no warm-up paragraphs, no "as we know..." prose.
 2. **No bullshit** — no implementation tutorial, no full code blocks. Code shows *how*; cheatsheets remind *what*. Replace code with the comparison the code was illustrating.
-3. **Structured around tables, comparisons, key differences** — markdown tables, side-by-side X-vs-Y matrices, when-to-use vs when-not-to-use pairs. These are the structures a glance can absorb.
+3. **Structured around tables, comparisons, key differences** — markdown tables, side-by-side X-vs-Y matrices, when-to-use vs when-not-to-use pairs. The bar is **"does this table make the concept easier to imagine?"** — tables that let the reader scan rows/columns and *see* the structure of the problem space. Don't force a table where a clean ASCII diagram or one-line skeleton works better.
 
 **Length is a tiebreaker, not the metric.** A 142-line file of clean comparison tables (e.g. [http_status_codes.md](data/computer_science/api_design/http_status_codes.md)) is a real cheatsheet. A 30-line wall of unstructured prose is not.
 
