@@ -1,92 +1,124 @@
-### System Design: Proximity Service (Yelp/Google Maps)
+### System Design: Proximity Service (Yelp / Google Maps / Geohash)
 
-**Requirements:**
-- Find nearby businesses/places within a radius
-- Search by category, rating, distance
-- Display on map, show details
-- Business owners can add/update listings
-- Handle millions of queries per day
+**Scope:** "find nearby businesses within radius R, optionally filtered by category / rating / text". Read-heavy (99%+); businesses change rarely.
 
-**Geospatial indexing approaches:**
+**Geospatial indexing approaches — pick by data shape:**
 
-| Approach | How | Best for |
-|----------|-----|----------|
-| **Geohash** | Encode lat/lng to string, prefix = area | Simple, works with any DB |
-| **Quadtree** | Recursive 2D space subdivision | Variable density areas |
-| **R-tree** | Balanced tree of bounding rectangles | PostGIS, range queries |
-| **S2/H3** | Sphere divided into cells | Google Maps (S2), Uber (H3) |
+| Approach | How it works | Strengths | Weaknesses | Used by |
+|---|---|---|---|---|
+| **Geohash** | Interleave lat/lng bits, base32 → string; prefix = bounding box | Works with any DB, simple, sortable, cacheable | Boundary problem (need 9 cells); irregular cell sizes near poles | Many Redis-based systems |
+| **Quadtree** | Recursively split 2D space into 4 quadrants; subdivide where dense | Adapts to density (deep in cities, shallow in rural) | Built in-memory; rebuild cost | Many in-house geo services |
+| **R-tree** | Balanced tree of bounding rectangles | Native to spatial DBs; supports arbitrary shapes | Heavier than geohash for "points within radius" | PostGIS, Mongo `2dsphere`, ES `geo_shape` |
+| **S2** | Sphere → Hilbert-curve-ordered cells, 31 levels | Globally consistent cell sizes; supports polygons | Steeper learning curve | Google Maps |
+| **H3** | Hexagonal hierarchical cells, 16 levels | Uniform neighbors (6 in all directions); great for analytics | Hexagons don't tile a sphere perfectly (12 pentagons) | Uber, Foursquare |
+| **k-d tree** | Recursive split alternating dimensions | Memory-efficient for static data | Imbalanced after many updates | Embedded / static datasets |
 
-**Geohash deep dive:**
+**Geohash precision quick-reference:**
+
+| Length | Cell size (mid-latitudes) | Use |
+|---|---|---|
+| 4 chars | ~39 km × 20 km | City-level search |
+| 5 chars | ~5 km × 5 km | Neighborhood |
+| 6 chars | ~1.2 km × 0.6 km | "Within 1 km" |
+| 7 chars | ~150 m × 150 m | Walking-distance |
+| 8 chars | ~38 m × 19 m | Pin-level |
+
+**The boundary problem (always present with grid-based indexes):**
+
+A point near a cell edge has its real neighbors in the **adjacent cell**, not just its own. Solution: query own cell + 8 neighbors (3×3 grid) and post-filter by exact distance.
+
 ```
-Latitude/Longitude -> Base32 string
-(37.7749, -122.4194) -> "9q8yyk8"
-
-Precision:
-  4 chars -> ~39km × 20km cell
-  5 chars -> ~5km × 5km cell
-  6 chars -> ~1.2km × 0.6km cell
-  7 chars -> ~150m × 150m cell
-
-Nearby = same prefix:
-  "9q8yyk" covers a ~1km area
-  All businesses in "9q8yyk*" are nearby
+┌─────┬─────┬─────┐
+│ NW  │  N  │ NE  │
+├─────┼─────┼─────┤
+│  W  │  ●  │  E  │   ← always query all 9 cells
+├─────┼─────┼─────┤
+│ SW  │  S  │ SE  │
+└─────┴─────┴─────┘
 ```
 
-**Searching nearby:**
+**High-level architecture:**
+
+```
+Client → API Gateway → Search Service ── Geospatial Index (geohash / quadtree / S2)
+                       Business Service ── Business DB
+                                              │
+                                    Elasticsearch (text + geo)
+                                              │
+                                          Redis cache
+                                              │
+                                            CDN (static assets)
+```
+
+**Two read paths — different storage:**
+
+| Path | Query | Storage |
+|---|---|---|
+| **Proximity** | "Show restaurants within 1 km of `(lat, lng)`" | Geospatial index (geohash / quadtree / H3) |
+| **Text + geo** | "Best sushi downtown" | Elasticsearch with `geo_distance` filter |
+| **Business detail** | "Open hours, photos, reviews for biz_123" | Business DB (read replica) + CDN for assets |
+
+**Search-by-geohash (relational example):**
+
 ```sql
--- Find businesses within geohash precision 6 (≈1km)
--- Must check neighboring cells too (boundary problem)
-SELECT * FROM businesses
-WHERE geohash LIKE '9q8yyk%'
-   OR geohash LIKE '9q8yyj%'   -- neighbor cells
-   OR geohash LIKE '9q8yym%'
-   -- ... (8 neighbors + center = 9 cells)
-AND category = 'restaurant'
-ORDER BY rating DESC
+SELECT id, name, lat, lng, rating
+FROM businesses
+WHERE geohash5 IN ('9q8yy', '9q8yz', '9q8yw', ...)  -- center + 8 neighbors at len-5
+  AND category = 'restaurant'
+ORDER BY <distance(lat, lng, ?, ?)> ASC
 LIMIT 20;
 ```
 
-**High-level design:**
-```
-[Client] -> [API Gateway] -> [Search Service] -> [Geospatial Index]
-                           -> [Business Service] -> [Business DB]
-                                                     |
-                                               [Elasticsearch]
-                                               (text search + geo)
-```
+Index on `(geohash5, category)`; compute exact distance only for the candidate set, not the whole DB.
 
-**Two read paths:**
-1. **Proximity search**: "restaurants near me" → geospatial index (geohash/quadtree)
-2. **Text search**: "best sushi downtown" → Elasticsearch with geo filter
+**Write path (business updates) — eventual consistency is fine:**
 
-**Quadtree (for variable density):**
-```
-Divide space into 4 quadrants.
-If a quadrant has > N businesses, subdivide again.
-Repeat until each leaf has ≤ N businesses.
+| Step | What happens |
+|---|---|
+| 1 | Business POSTs new/updated listing → Business DB write |
+| 2 | Async event → re-index in Elasticsearch + geospatial index |
+| 3 | Cache invalidation (Redis: drop `(geohash, category)` keys overlapping the change) |
+| 4 | Re-render CDN-cached detail page (or wait for TTL) |
 
-Dense city center: deep tree (small cells)
-Rural area: shallow tree (large cells)
-```
-- Built in-memory on server startup
-- Rebuilt periodically (business changes are rare)
-- Each leaf node stores list of business IDs
+> Reads vastly outnumber writes (~10⁵:1). Optimize the read side; tolerate seconds-to-minutes of write lag.
 
-**Write path (business updates):**
-- Business creates/updates listing → write to DB
-- Async update geospatial index (rebuild affected cells)
-- Businesses change rarely → eventual consistency is fine
+**Caching layers:**
 
-**Caching:**
-- Cache popular areas (city centers) in Redis
-- Cache business detail pages (CDN, ~1 hour TTL)
-- Geospatial results cacheable by (geohash, category, radius)
+| Layer | What | TTL |
+|---|---|---|
+| CDN | Business detail pages, photos | ~1 h |
+| Redis | Search results keyed by `(geohash, category, radius)` for popular areas | 1–10 min |
+| Redis | Hot business detail summaries | 5 min |
+| Application memory | Per-request quadtree (reloaded on schedule) | Build at startup, refresh hourly |
 
-**Scaling:**
-- Read-heavy system (99%+ reads)
-- Shard geospatial index by region
-- Read replicas for business DB
-- Elasticsearch cluster for text + geo search
-- CDN for static business content (photos, menus)
+**Scaling levers:**
 
-**Rule of thumb:** Geohash for simple radius search (prefix matching). Quadtree for variable-density areas. Always search neighboring cells (boundary problem). Elasticsearch combines text search with geo filtering. Businesses change rarely, so cache aggressively.
+| Pressure | Lever |
+|---|---|
+| Read QPS | CDN + Redis + read replicas (most cities are read-cacheable) |
+| Hot city (NYC, Tokyo, SF) | Shard geo index by city/region; dedicated cache for hot areas |
+| Text search load | Separate ES cluster, sharded by `(country, city)` |
+| Write throughput | Async write fan-out (DB → message bus → ES + geo + cache invalidation) |
+| Map tile rendering | Pre-rendered tile cache (vector tiles via Mapbox/MapLibre) |
+
+**Common interview tradeoffs:**
+
+| Question | Tradeoff |
+|---|---|
+| Geohash vs quadtree | Geohash: simple, any DB. Quadtree: handles density variance |
+| Cell size | Smaller = fewer false positives + more 9-neighbor queries; bigger = the reverse |
+| Eventual vs strong consistency | Eventual is fine — businesses don't move every second |
+| Pre-compute popular areas | Yes for top-K cities; on-demand for the long tail |
+| ES vs PostGIS for geo+text | PostGIS for exact polygons / strong consistency; ES for ranked text + geo |
+
+**Pitfalls:**
+
+| Pitfall | Why |
+|---|---|
+| Querying only the center cell | Misses neighbors at edges (the boundary problem) |
+| Exact distance filter on every row in the table | Full scan — must narrow with geohash/index first |
+| Geohash near the dateline / poles | Discontinuities — explicit handling or use S2 |
+| Rebuilding the entire quadtree on every write | Incremental rebuild affected leaves only |
+| Caching radius-N results when caller asked for radius-M (M < N) | Cache key must include `radius` |
+
+**Rule of thumb:** **geohash for simple radius search (prefix match + 9-cell neighbor query), quadtree for variable density, H3/S2 when you need globally consistent cell sizes.** Always **expand to neighbor cells** to avoid edge misses, then **post-filter by exact distance**. Use **Elasticsearch when text + geo overlap**; **PostGIS when polygons or strong consistency matter**. Cache the heck out of popular cities — businesses don't move.

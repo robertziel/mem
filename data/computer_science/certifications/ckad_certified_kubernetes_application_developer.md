@@ -1,89 +1,146 @@
 ### CKAD — Certified Kubernetes Application Developer
 
-**The hands-on Kubernetes cert for developers.** 100% performance-based (you SSH into a cluster and solve problems). Essential for SaaS/microservices engineers.
+**Exam quick facts:**
 
-**Exam logistics:**
-- Code: CKAD
-- Duration: 120 min, 15-20 hands-on tasks (weighted)
-- Passing: 66% (was 66% historically; check Linux Foundation for current)
-- Cost: $445 USD (includes one free retake)
-- Validity: 2 years
-- Format: Remote-proctored, real Kubernetes clusters (v1.31+ typically)
-- Retake: one free retake included
+| Item | Value |
+|---|---|
+| Code | CKAD |
+| Duration | 120 min, 15–20 hands-on tasks (weighted) |
+| Pass | 66% |
+| Cost | $445 USD (one free retake) |
+| Validity | 2 years |
+| K8s version | Current minus a release (e.g. v1.31+) |
+| Format | Remote-proctored, real cluster terminal |
+| Allowed docs | kubernetes.io/docs, kubernetes.io/blog, helm.sh/docs |
 
-**Domain weights (CKAD):**
+**Domain weights:**
 
-| Domain | Weight | Focus |
+| # | Domain | Weight | Headline focus |
+|---|---|---:|---|
+| 1 | Application Design & Build | 20% | Multi-container pods, init containers, probes, Jobs, CronJobs |
+| 2 | Application Deployment | 20% | Deployments, rollouts, rollbacks, Helm basics, blue/green, canary |
+| 3 | Observability & Maintenance | 15% | Probes, logs, debug |
+| 4 | **Environment, Config, Security** | **25%** | ConfigMaps, Secrets, SAs, SecurityContext, RBAC |
+| 5 | Services & Networking | 20% | Services, Ingress, NetworkPolicies |
+
+**CKAD vs CKA vs CKS:** see [cka_certified_kubernetes_administrator.md](cka_certified_kubernetes_administrator.md) for the cert-comparison matrix.
+
+**Imperative commands — generate YAML fast (the entire exam strategy):**
+
+| Goal | Command |
+|---|---|
+| Pod skeleton | `kubectl run nginx --image=nginx --dry-run=client -o yaml > pod.yaml` |
+| Deployment skeleton | `kubectl create deployment app --image=nginx --replicas=3 --dry-run=client -o yaml > d.yaml` |
+| ConfigMap from literal | `kubectl create configmap app --from-literal=KEY=value` |
+| ConfigMap from file | `kubectl create configmap app --from-file=config.yaml` |
+| Secret | `kubectl create secret generic db --from-literal=password=xxx` |
+| Job | `kubectl create job hi --image=busybox -- /bin/sh -c "echo hi"` |
+| CronJob | `kubectl create cronjob cron --image=busybox --schedule="*/1 * * * *" -- ls` |
+| Service from deployment | `kubectl expose deployment app --port=80 --target-port=8080 --type=ClusterIP` |
+| Scale | `kubectl scale deployment app --replicas=5` |
+| Rollout status / undo | `kubectl rollout status deployment app` / `... rollout undo deployment app` |
+
+**Aliases / env vars to set first thing on the exam:**
+
+| Set up | Effect |
+|---|---|
+| `alias k=kubectl` | One letter saves seconds × dozens of commands |
+| `export do='--dry-run=client -o yaml'` | `k run x --image=nginx $do` instantly produces YAML |
+| `export now='--force --grace-period=0'` | Fast pod delete |
+| `source <(kubectl completion bash)` | Tab completion for resources |
+| `complete -F __start_kubectl k` | Same completion under the alias |
+
+**`kubectl explain` for any field you forget:**
+
+| Use | Command |
+|---|---|
+| Top-level fields | `k explain pod` |
+| Drill | `k explain pod.spec.containers` |
+| Show **everything** | `k explain pod.spec.containers --recursive` |
+| Probes | `k explain pod.spec.containers.livenessProbe --recursive` |
+| Volumes | `k explain pod.spec.volumes --recursive` |
+| NetworkPolicy | `k explain networkpolicy.spec --recursive` |
+
+**YAML patterns to have at fingertips:**
+
+| Pattern | What to remember |
+|---|---|
+| **Multi-container pod** | Containers in `spec.containers[]`, communicate via shared `emptyDir` volume or `localhost` |
+| **Init container** | `spec.initContainers[]` runs to completion before main containers |
+| **Probes** (`liveness`, `readiness`, `startup`) | One of `httpGet` / `exec` / `tcpSocket`; tune `initialDelaySeconds`, `periodSeconds`, `failureThreshold` |
+| **Resource requests/limits** | `resources: { requests: { cpu, memory }, limits: { cpu, memory } }` |
+| **ConfigMap as env** | `envFrom: [{ configMapRef: { name } }]` or `env: [{ name, valueFrom: { configMapKeyRef } }]` |
+| **ConfigMap as volume** | `volumes: [{ name, configMap: { name } }]` + `volumeMounts: [{ name, mountPath }]` |
+| **Secret as env / volume** | Same shape as ConfigMap, swap `configMapRef` → `secretRef` |
+| **ServiceAccount + RBAC** | `Role` (verbs/resources) + `RoleBinding` (subjects) — namespace-scoped |
+| **SecurityContext (pod)** | `runAsUser`, `runAsNonRoot`, `fsGroup` — hardening defaults |
+| **SecurityContext (container)** | `capabilities.drop: ["ALL"]`, `readOnlyRootFilesystem`, `allowPrivilegeEscalation: false` |
+| **NetworkPolicy** | `podSelector`, `policyTypes: [Ingress, Egress]`, rules with `podSelector`/`namespaceSelector`/`ipBlock` |
+| **Ingress** | `rules[].host`, `paths[].path` + `pathType` (`Prefix` / `Exact`), `backend.service.name` |
+| **Job** | `completions`, `parallelism`, `backoffLimit`, `restartPolicy: Never` |
+| **CronJob** | `schedule` (cron string), `concurrencyPolicy` (`Allow`/`Forbid`/`Replace`), `successfulJobsHistoryLimit` |
+
+**Service types — quick discrimination:**
+
+| Type | Reachable from | Use for |
 |---|---|---|
-| 1. Application Design and Build | 20% | Multi-container pods, init containers, probes, Jobs, CronJobs |
-| 2. Application Deployment | 20% | Deployments, rollouts, rollbacks, Helm basics, blue/green, canary |
-| 3. Application Observability and Maintenance | 15% | Liveness/Readiness/Startup probes, logging, debugging |
-| 4. Application Environment, Configuration, and Security | 25% | ConfigMaps, Secrets, ServiceAccounts, SecurityContext, RBAC |
-| 5. Services and Networking | 20% | Services (ClusterIP/NodePort/LoadBalancer), Ingress, NetworkPolicies |
+| `ClusterIP` (default) | Inside cluster only | Service-to-service |
+| `NodePort` | Any node IP at `:30000–32767` | Quick external access in dev |
+| `LoadBalancer` | Cloud LB IP | External, production |
+| `ExternalName` | DNS CNAME (no proxy) | Alias for an external host |
+| `Headless` (`clusterIP: None`) | Direct pod IPs via DNS | StatefulSets, peer discovery |
 
-**kubectl commands you MUST know cold (speed is everything):**
-```bash
-# Create resources imperatively
-kubectl run nginx --image=nginx --port=80 --dry-run=client -o yaml > pod.yaml
-kubectl create deployment nginx --image=nginx --replicas=3 --dry-run=client -o yaml
-kubectl create configmap app --from-literal=KEY=value --from-file=config.yaml
-kubectl create secret generic db --from-literal=password=xxx
-kubectl create job hello --image=busybox -- /bin/sh -c "echo hello"
-kubectl create cronjob cron --image=busybox --schedule="*/1 * * * *" -- ls
+**Probes — failure consequence by type:**
 
-# Expose / service
-kubectl expose deployment nginx --port=80 --target-port=80 --type=ClusterIP
+| Probe | Fails → | Use for |
+|---|---|---|
+| `livenessProbe` | Container restarted | Detect deadlocked process |
+| `readinessProbe` | Pod removed from Service endpoints | Cold start, transient downstream issue |
+| `startupProbe` | Liveness/readiness suspended until startup passes | Slow-starting apps; prevents premature liveness kill |
 
-# Scale / rollout
-kubectl scale deployment nginx --replicas=5
-kubectl rollout status deployment nginx
-kubectl rollout undo deployment nginx
+**Debug flow (the 15% observability bucket):**
 
-# Quick edits / debug
-kubectl edit deployment nginx
-kubectl logs -f pod/mypod -c container-name --previous
-kubectl exec -it pod/mypod -- sh
-kubectl port-forward pod/mypod 8080:80
+| Step | Command |
+|---|---|
+| Start | `k describe pod <p>` — read **Events** at the bottom |
+| Logs | `k logs <p> -c <container>` (`--previous` for last crash) |
+| Inside container | `k exec -it <p> -c <c> -- sh` |
+| All events sorted | `k get events --sort-by=.lastTimestamp` |
+| Local port-forward | `k port-forward <p> 8080:80` |
+| Wait on rollout | `k rollout status deployment <d>` |
+| Drop to last good | `k rollout undo deployment <d>` |
 
-# Namespace-aware
-kubectl config set-context --current --namespace=dev
-```
+**Time-saving exam habits:**
 
-**YAML patterns to memorize:**
-- Init containers (wait for DB, seed data)
-- Pod with multiple containers + shared emptyDir volume
-- Probes (httpGet, exec, tcpSocket with thresholds)
-- ResourceRequests and ResourceLimits
-- ConfigMap / Secret via env and volume mount
-- ServiceAccount + RBAC Role + RoleBinding
-- NetworkPolicy (ingress/egress with podSelector and namespaceSelector)
-- Ingress with path-based + host-based routing
-- Jobs with completions/parallelism + backoffLimit
-- CronJob with schedule + concurrencyPolicy
+| Habit | Reason |
+|---|---|
+| Read every question's namespace + context | Wrong namespace = 0 marks even if YAML is correct |
+| `k config use-context <ctx>` at the start of each task | Multi-cluster exam — easy to apply to wrong cluster |
+| Generate YAML imperatively, then edit | Faster than typing from scratch |
+| Use kubernetes.io/docs as a copy-paste source | YAML templates for NetworkPolicy, Ingress, etc. |
+| Flag hard tasks, come back later | 5–7 min target per task |
+| Vim: `set tabstop=2 expandtab` (in `.vimrc` if allowed) | YAML demands consistent 2-space indent |
 
-**Critical exam tips:**
-- **Enable aliases early**: `alias k=kubectl`, `export do="--dry-run=client -o yaml"`, `export now="--force --grace-period 0"`
-- **Use `kubectl explain`**: memorize `k explain pod.spec.containers.livenessProbe --recursive` for quick field lookup
-- **Always use `-n <namespace>`** — exam questions specify a namespace; getting it wrong = 0 marks
-- **Context switching**: every task starts with `kubectl config use-context <context>` — forgetting loses marks
-- **Speed drills**: aim for 5-7 min per task; flag hard ones, return later
-- **Vim basics**: set tab→2spaces in `.vimrc` beforehand if you bring custom config
-- **Copy-paste from docs**: kubernetes.io and kubectl doc are accessible during exam — use them for YAML templates
+**Study path (40–80 hours with K8s experience; 100–150 without):**
 
-**Allowed resources during exam:**
-- https://kubernetes.io/docs/ (entire site)
-- https://kubernetes.io/blog/
-- https://helm.sh/docs/ (new in 2024+)
+| Resource | Why |
+|---|---|
+| KodeKloud CKAD (Mumshad) | Mock labs + paced video |
+| killer.sh CKAD (2 attempts free with exam) | **Harder than the real exam** — calibrates speed |
+| Daily `kubectl` drills 2–3 weeks out | Muscle memory wins the speed game |
+| Full 2-hour mock under timer | Build the stamina |
 
-**Study path:**
-- Mumshad Mannambeth KodeKloud CKAD course (the standard)
-- KillerCoda/Killer.sh practice sessions (2 free included with exam — use them!)
-- Daily kubectl practice for 2-3 weeks before exam
-- Speed practice: set a 2-hour timer and simulate full exam
+**Pitfalls:**
 
-**Existing memos:**
-- `devops/kubernetes/` — 16+ K8s files covering architecture, probes, storage, ingress, RBAC, etc.
+| Pitfall | Effect |
+|---|---|
+| Forgetting `--namespace` / context switch | Apply to wrong place — task graded as failed |
+| Hand-typing YAML from memory | Slow + error-prone — use imperative + edit |
+| Ignoring `kubectl explain --recursive` | Spending minutes on docs site for fields that are inline |
+| Multi-container pod confusion | One pod, multiple containers, shared volume — not multiple pods |
+| Mixing up Jobs vs CronJobs | Job runs once; CronJob runs on a schedule |
+| Probes with same `initialDelaySeconds` for liveness as readiness | App killed during cold start — use `startupProbe` |
 
-**Who it's for:** Backend/platform engineers deploying to Kubernetes. Prep time: 40-80 hours with K8s experience; 100-150 hours without.
+**Cross-references:** `devops/kubernetes/` — RBAC, probes, networking, storage, Ingress, Helm cheatsheets.
 
-**Rule of thumb:** CKAD is about speed and accuracy — you know the material or you don't; there's no guessing multiple choice. Imperative commands generate most YAML (`--dry-run=client -o yaml > f.yaml`) — memorize the flags. Do Killer.sh the night before — it's much harder than the actual exam, which calibrates your speed.
+**Rule of thumb:** **CKAD is a speed exam — you know it cold or you don't finish.** Imperative commands (`run`, `create`, `expose`) **generate most YAML** for you; memorize the flags + `--dry-run=client -o yaml`. **`kubectl explain --recursive`** is faster than the website. **Always check namespace + context** before applying. **killer.sh the night before** — its difficulty calibrates your real-exam speed.

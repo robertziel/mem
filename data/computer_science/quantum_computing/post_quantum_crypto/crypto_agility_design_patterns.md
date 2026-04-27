@@ -1,92 +1,115 @@
 ### Cryptographic Agility — Design Patterns for Swappable Primitives
 
-**What it is:**
-An application design discipline where cryptographic primitives (KEMs, signatures, AEADs, hashes) are **never** hard-coded in call sites, but selected through a versioned ciphersuite identifier carried in the data itself. The app can rotate RSA → ECDSA → ML-DSA without redeploying call sites, and can *verify* old data while *producing* new data under a different algorithm. Without it, PQ migration degenerates into an archaeology dig across every service.
+**Definition:** an application discipline where cryptographic primitives (KEMs, signatures, AEADs, hashes) are **never hard-coded at call sites** but selected through a versioned **ciphersuite ID** carried inside the data itself. Verifiers dispatch on the tag; producers stamp it.
 
-**Threat agility defends against:**
-- CRQC making the current algorithm obsolete.
-- An implementation CVE (a parameter-set class break, like XMSS-leaf reuse) forcing emergency rotation.
-- Regulator mandating a different FIPS profile mid-deployment.
+> **One-line litmus test:** if you can't answer "what algorithm does this ciphertext use?" by reading its first 4 bytes, you don't have crypto agility — you have crypto debt waiting for a CVE to collect the interest.
 
-**Core pattern — ciphersuite ID tagged with every artifact:**
+**Threats it defends against:**
+
+| Threat | Without agility | With agility |
+|---|---|---|
+| CRQC obsoletes current algorithm | Re-deploy every call site, archaeology dig | Add a new suite ID to registry; flip writers |
+| Class-break CVE in a parameter set (e.g., XMSS leaf reuse) | Emergency global patch, downtime | Mark old suite `forbidden`, ship new ID |
+| Regulator mandates new FIPS profile mid-deployment | Re-engineer crypto layer | Configure tenant policy minimum |
+| Slow rollout while old data still verifies | Choose between breaking verification or freezing migration | Producer flips, verifier accepts both |
+
+**Core pattern — `(suite_id, params, payload)`:**
+
 ```
-artifact := suite_id || algo_params || payload
-suite_id := u32 registered code; e.g.
-  0x01 = AES-256-GCM + HKDF-SHA256 + X25519MLKEM768 + ML-DSA-65
-  0x02 = AES-256-GCM + HKDF-SHA384 + X25519          + ECDSA-P256
+artifact = u32 suite_id || algo-specific framing || payload
 ```
-Every verifier dispatches on `suite_id`. Every producer stamps it. No call site ever names an algorithm by string.
 
-**Indirection layer (sketch, Rust-ish pseudocode):**
-```rust
-trait Kem {
-    fn keygen(&self, rng: &mut dyn Rng) -> (PubKey, SecKey);
-    fn encap(&self, pk: &PubKey, rng: &mut dyn Rng) -> (Ct, SharedSecret);
-    fn decap(&self, sk: &SecKey, ct: &Ct) -> Result<SharedSecret>;
-}
+| Suite ID | Tuple | Posture |
+|---|---|---|
+| `0x01` | AES-256-GCM + HKDF-SHA256 + X25519MLKEM768 + ML-DSA-65 | PQ-hybrid, current target |
+| `0x02` | AES-256-GCM + HKDF-SHA384 + X25519 + ECDSA-P256 | Classical only, deprecated soon |
+| `0x03` | ChaCha20-Poly1305 + HKDF-SHA256 + ML-KEM-768 + ML-DSA-65 | PQ-only, mobile-friendly |
 
-struct Suite { id: u32, kem: &'static dyn Kem, sig: &'static dyn Sig, aead: &'static dyn Aead }
+> Each ID names an **exact tuple**, not a family. `AES-256-GCM + HKDF-SHA256` and `AES-256-GCM + HKDF-SHA384` are different suites.
 
-fn encrypt(suite: &Suite, plaintext: &[u8], peer_pk: &PubKey) -> Vec<u8> {
-    let mut out = suite.id.to_be_bytes().to_vec();        // tag first
-    let (ct, ss) = suite.kem.encap(peer_pk, &mut OsRng);
-    let nonce = random_nonce();
-    let aead_ct = suite.aead.seal(&derive_key(&ss), &nonce, plaintext);
-    out.extend(ct); out.extend(nonce); out.extend(aead_ct);
-    out
-}
+**Indirection layer — what each piece owns:**
 
-fn decrypt(sk_bundle: &SecKeyBundle, blob: &[u8]) -> Result<Vec<u8>> {
-    let id = u32::from_be_bytes(blob[0..4].try_into()?);
-    let suite = SUITE_REGISTRY.get(id).ok_or(Err::UnknownSuite)?;
-    let sk = sk_bundle.for_suite(id).ok_or(Err::NoKeyForSuite)?;
-    // ... decap + open ...
-}
-```
-No call site names `Kyber` or `ECDSA`; the registry is the only place with concrete types.
+| Component | Role | Touches concrete crypto? |
+|---|---|---|
+| Trait/interface (`Kem`, `Sig`, `Aead`, `Hash`) | Algorithm-agnostic contract | No |
+| Suite struct | Bundles `(id, kem, sig, aead, hash)` | Yes — but only **once**, in the registry |
+| Suite registry | `id → Suite` lookup | Yes — single place with concrete types |
+| Producer call sites | `encrypt(suite, plaintext, peer_pk)` | **No** — never names an algorithm |
+| Verifier call sites | `decrypt(blob)` reads `suite_id` from first bytes | **No** — dispatches via registry |
+| Default-suite policy | Per-tenant / per-env "use this id" | Configuration only |
 
-**Algorithm-negotiation surfaces:**
+**Negotiation surfaces — where the suite is chosen:**
+
 | Surface | Mechanism |
 |---|---|
-| Transport (TLS, SSH, IPsec) | Protocol-defined negotiation (`NamedGroup`, `signature_algorithms`). |
-| Message layer (COSE, JOSE, CMS, PGP) | `alg` header per message; recipient decodes by tag. |
-| At-rest blobs (field-level crypto, envelope-wrapped KEKs) | Length-prefixed `suite_id` as the first bytes of the ciphertext. |
-| Signed releases / SBOMs | Detached sig file with explicit `alg:` metadata; verify-all-accepted-sigs pattern. |
+| Transport (TLS, SSH, IPsec) | Protocol-defined: `supported_groups`, `signature_algorithms`, KEX list |
+| Message layer (COSE, JOSE, CMS, PGP) | `alg` header per message |
+| At-rest blobs (field-level, envelope KEKs) | Length-prefixed `suite_id` first bytes of ciphertext |
+| Signed artifacts (releases, SBOMs, attestations) | Detached signature with `alg:` metadata; verify-any-accepted pattern |
+| Tokens (JWT, PASETO) | Header `alg` claim; reject `none` and unexpected algorithms |
 
-**Runtime key-format detection:**
+**Self-describing keys (registry rules):**
+
 ```yaml
-# Keys stored with self-describing tag
 - kid: user-42-sig-2026
-  alg: ML-DSA-65           # serialized enum
+  alg: ML-DSA-65         # serialized enum
   created: 2026-03-11
-  material: base64url(pq_public_key)
+  material: base64url(pk)
 - kid: user-42-sig-2023
-  alg: ECDSA-P256
+  alg: ECDSA-P256        # legacy still verifies
   created: 2023-05-01
-  material: base64url(ec_public_key)
+  material: base64url(pk)
 ```
-Verifiers iterate keys, match by `alg` compatible with the artifact's `suite_id`, and accept if any verifies. Signers pick the newest non-deprecated key.
 
-**Versioned ciphersuite registry — rules:**
-1. IDs are **append-only**. Never reuse, never mutate.
-2. Each ID names an exact tuple — not a family. `AES-256-GCM + HKDF-SHA256` is one suite; `AES-256-GCM + HKDF-SHA384` is another.
-3. A `deprecated` flag lets producers stop issuing but verifiers keep accepting (data already out there needs verifying forever, or until re-encrypted).
-4. A `forbidden` flag is stronger — verifiers reject. Use only after a class break.
+| Behavior | Rule |
+|---|---|
+| Verify | Iterate stored keys; accept if **any** valid match for the artifact's `suite_id` |
+| Sign | Pick the **newest non-deprecated** key whose `alg` is in the active suite |
+| Rotate | Add new `kid` first; deprecate the old one only after producer cutover |
+
+**Registry policy (append-only, versioned):**
+
+| Rule | Why |
+|---|---|
+| IDs are **append-only**, never reused, never mutated | A reused ID makes old data un-decryptable or, worse, decryptable wrongly |
+| Each ID = exact tuple, not a family | "Whichever AES" is not a stable contract |
+| `deprecated` flag — producers stop, verifiers continue | At-rest data lives forever (or until re-encrypted) |
+| `forbidden` flag — verifiers reject | Use only after a class break |
+| Per-tenant policy minimum | "This tenant requires PQ in the suite" enforced at writer + reader |
+
+**Migration pattern (gradual cutover):**
+
+| Step | Action | Risk if skipped |
+|---|---|---|
+| 1 | Freeze call sites — route through indirection layer | Anything else is mocking real agility |
+| 2 | Assign suite IDs for current + target suites | Without IDs in the data, you can't tell future readers what's what |
+| 3 | Ship a **reader** that accepts old + new | Skip → existing data fails to verify |
+| 4 | Ship a writer still producing the old for one cycle | Skip → if the new writer has a bug, you've already corrupted prod data |
+| 5 | Flip the writer to the new suite | Monitor verifier hit rate — should approach 100% on new ID |
+| 6 | Mark old suite `deprecated`; schedule at-rest re-encryption | Skip → permanent dependency on legacy suite |
+| 7 | Mark old suite `forbidden` once no production reads it | Without this, downgrade attacks remain possible |
 
 **Pitfalls:**
-- **Hidden hard-codes**: a helper like `sha256(x)` scattered through 400 files is a hidden hash algorithm pin. Route through a `Hash::default()` that honors the current suite.
-- **Oracle on negotiation**: letting the attacker pick the *weakest* algorithm you support. Enforce a per-tenant policy minimum (e.g., "this tenant requires PQ in the suite").
-- **Key-reuse across suites**: the same long-term signing key under ECDSA and ML-DSA is tempting but opens cross-protocol attacks. Generate fresh PQ keys at suite introduction.
-- **Serialization drift**: an agile system with inconsistent framing (some call sites prefix lengths, some don't) creates parser gadgets. Centralize the framing with the suite tag.
-- **Rollback**: let a client advertise acceptance of deprecated suites and you open a downgrade path. Keep accept-lists tight and log every fallback.
-- **Config-driven agility without a registry**: letting ops flip algorithms by env var without a versioned ID produces data no one can decrypt three years later.
 
-**Migration pattern:**
-1. Freeze current call sites; add tagging to new artifacts.
-2. Stand up the registry; assign IDs for current + target suites.
-3. Ship a reader that accepts both; ship a writer that still produces the old for one deployment cycle.
-4. Flip the writer. Monitor verifier hit rate on the new suite.
-5. Mark the old suite deprecated. Schedule re-encryption of at-rest data.
-6. Mark forbidden once no production reads it.
+| Pitfall | Why it bites |
+|---|---|
+| Scattered helpers like `sha256(x)` | Hidden algorithm pin — agility lies. Route through `Hash::default()` honoring the current suite |
+| Negotiation oracle | Attacker picks the **weakest** suite you accept. Enforce per-tenant minimums |
+| Reusing a long-term signing key across PQ + classical | Cross-protocol attacks. Generate fresh PQ keys at suite introduction |
+| Inconsistent framing across call sites | Parser gadgets. Centralize framing with the suite tag |
+| Downgrade rollback | Don't accept deprecated suites without explicit fallback log + alert |
+| "Agility" via env var, no registry | Data produced today is undecryptable in three years |
+| `JWT alg: none` accepted | Whole system relies on the verifier's algorithm whitelist — make it strict |
+| In-band tag without integrity | Tag must be authenticated alongside ciphertext, not bare prefix |
 
-**Rule of thumb:** If you can't answer "what algorithm does this ciphertext use?" by reading its first 4 bytes, you don't have crypto agility — you have crypto debt waiting for a CVE to collect the interest.
+**What "good" looks like:**
+
+| Property | Test |
+|---|---|
+| Algorithm visible in artifact | `xxd artifact.bin \| head` shows the `suite_id` |
+| Single registry update enables a new suite | Adding ML-DSA-87 = one new entry, no call-site changes |
+| Verifier accepts old + new in parallel | Producer can flip without coordinating with reader fleet |
+| Per-tenant minimum enforced | A regulated tenant can't be served weaker crypto by a misconfigured client |
+| Deprecation auditable | Logs show every fallback to a deprecated suite |
+
+**Rule of thumb:** **tag every artifact with a versioned suite ID; verifiers dispatch via a single registry; no call site ever names an algorithm.** Migration must be **read-then-write** (deploy new readers first, then flip writers, then deprecate). Treat the registry as **append-only** like a database migration. The PQ transition is the moment everyone discovers whether their crypto layer has agility or just *talks about* having it.
