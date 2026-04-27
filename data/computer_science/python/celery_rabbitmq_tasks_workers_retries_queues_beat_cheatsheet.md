@@ -1,159 +1,138 @@
-### Celery + RabbitMQ Cheatsheet
+### Celery + RabbitMQ Cheatsheet (Tasks, Workers, Retries, Queues, Beat)
 
-**What goes where:**
-- **Celery** = Python task queue / worker framework
-- **RabbitMQ** = broker that stores and routes messages
-- **Result backend** = optional separate store for task results (`redis`, DB, RPC)
-- Common setup: RabbitMQ as **broker**, Redis as **result backend**
+**Component map:**
 
-**Install:**
-```bash
-pip install celery[rabbitmq] redis
-```
+| Piece | Role | Common choice |
+|---|---|---|
+| Celery | Python task framework, defines tasks + workers | — |
+| Broker | Stores + routes messages | RabbitMQ (default) |
+| Result backend | Stores task return values (optional) | Redis |
+| Beat | Cron-like periodic task scheduler | Run as a separate process |
 
-**Broker / backend URLs:**
-```python
-broker = "amqp://guest:guest@localhost:5672//"
-backend = "redis://localhost:6379/0"   # optional but common
-```
+**URLs:**
 
-**Minimal app setup:**
-```python
-# celery_app.py
-from celery import Celery
+| Use | Example |
+|---|---|
+| Broker (RabbitMQ) | `amqp://guest:guest@localhost:5672//` |
+| Result backend (Redis) | `redis://localhost:6379/0` |
+| Result backend (DB) | `db+postgresql://user:pass@host/dbname` |
+| Result backend (RPC, ephemeral) | `rpc://` |
 
-app = Celery(
-    "myapp",
-    broker="amqp://guest:guest@localhost:5672//",
-    backend="redis://localhost:6379/0",
-)
+**Task definition forms:**
 
-app.conf.update(
-    task_default_queue="default",
-    task_default_exchange="default",
-    task_default_routing_key="default",
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone="UTC",
-    enable_utc=True,
-    task_acks_late=True,
-    worker_prefetch_multiplier=1,
-)
-```
+| Form | Decorator + key options |
+|---|---|
+| Basic | `@app.task` |
+| Retryable on specific exceptions | `@app.task(autoretry_for=(RequestException,), retry_backoff=True, retry_jitter=True, retry_kwargs={"max_retries": 5})` |
+| Bound (access self / `self.retry()` manually) | `@app.task(bind=True)` |
+| Idempotent / safe at-least-once | `@app.task(acks_late=True)` (worker ACKs after success — survive crashes; task must be idempotent) |
+| Time-limited | `@app.task(time_limit=300, soft_time_limit=270)` |
 
-**Basic task:**
-```python
-from celery_app import app
+**Calling tasks:**
 
-@app.task
-def add(x, y):
-    return x + y
-```
-
-**Call task:**
-```python
-add.delay(2, 3)                              # simplest
-add.apply_async(args=[2, 3], countdown=10)  # run 10s later
-add.apply_async(args=[2, 3], eta=None, queue="math")
-```
-
-**Retryable task:**
-```python
-import requests
-from celery_app import app
-
-@app.task(
-    bind=True,
-    autoretry_for=(requests.RequestException,),
-    retry_backoff=True,
-    retry_jitter=True,
-    retry_kwargs={"max_retries": 5},
-)
-def fetch_url(self, url):
-    r = requests.get(url, timeout=10)
-    r.raise_for_status()
-    return r.text[:200]
-```
+| Call | Effect |
+|---|---|
+| `task.delay(*args, **kw)` | Send now, default queue |
+| `task.apply_async(args=[...], countdown=10)` | Run 10s from now |
+| `task.apply_async(args=[...], eta=datetime)` | Run at specific time |
+| `task.apply_async(args=[...], queue="reports")` | Send to specific queue |
+| `task.s(...)` | Build a *signature* (for chains/groups) |
+| `chain(a.s(), b.s())()` | Run b after a, passing result |
+| `group(a.s(), b.s(), c.s())()` | Run all in parallel, gather results |
 
 **Queue routing:**
+
 ```python
 app.conf.task_routes = {
-    "tasks.send_email": {"queue": "mailers"},
-    "tasks.generate_report": {"queue": "reports"},
+    "tasks.send_email":       {"queue": "mailers"},
+    "tasks.generate_report":  {"queue": "reports"},
 }
 ```
 
-```python
-send_email.apply_async(args=[user_id], queue="mailers")
-generate_report.delay(report_id)   # auto-routed by task_routes
-```
+**Worker invocation:**
 
-**Run workers:**
-```bash
-celery -A celery_app worker -l info
-celery -A celery_app worker -l info -Q default,mailers
-celery -A celery_app worker -l info --concurrency=4
-```
+| Command | Notes |
+|---|---|
+| `celery -A celery_app worker -l info` | Default — listens on `default` queue |
+| `... worker -Q default,mailers` | Specific queues |
+| `... worker --concurrency=4` | Pool size (prefork by default) |
+| `... worker --pool=solo` / `gevent` / `eventlet` / `threads` | Switch executor (I/O-bound: gevent/threads; CPU-bound: prefork) |
+| `celery -A celery_app beat -l info` | Periodic scheduler (separate process) |
+| `celery -A celery_app inspect active` / `registered` / `status` | Live introspection |
 
-**Periodic tasks (beat):**
+**Task lifecycle states (return of `.state`):**
+
+| State | Meaning |
+|---|---|
+| `PENDING` | Unknown — either not yet picked up, or backend doesn't know it |
+| `STARTED` | Worker has it (only if `task_track_started=True`) |
+| `RETRY` | Scheduled for retry |
+| `SUCCESS` | Completed; result available |
+| `FAILURE` | Exception raised |
+| `REVOKED` | Cancelled |
+
+**Periodic tasks (Beat):**
+
 ```python
 from celery.schedules import crontab
 
 app.conf.beat_schedule = {
-    "cleanup-every-night": {
+    "nightly-cleanup": {
         "task": "tasks.cleanup_expired_sessions",
         "schedule": crontab(hour=2, minute=0),
-    }
+    },
 }
 ```
 
-```bash
-celery -A celery_app beat -l info
-```
+| Schedule type | Form |
+|---|---|
+| Every N seconds | `30.0` (raw float) |
+| Cron | `crontab(hour=2, minute=0)` |
+| Solar | `solar('sunset', lat, lon)` |
 
-**Task states:**
-- `PENDING` - not started / unknown to backend
-- `STARTED` - worker picked it up
-- `SUCCESS` - completed
-- `FAILURE` - raised exception
-- `RETRY` - scheduled to retry
+**Config knobs that bite (and what they do):**
 
-**Useful config knobs:**
-- `task_acks_late=True` -> ACK after work finishes; safer for crashes, requires idempotent tasks
-- `worker_prefetch_multiplier=1` -> fairer task distribution for long jobs
-- `task_time_limit=300` -> hard kill runaway jobs
-- `task_soft_time_limit=270` -> raise exception before hard kill
-- `result_expires=3600` -> auto-expire old results
+| Setting | Default | When to change |
+|---|---|---|
+| `task_acks_late` | `False` | **`True` for any non-idempotent crash safety** — worker ACKs after task completes, so a crashed worker's task is redelivered |
+| `worker_prefetch_multiplier` | `4` | **`1` for long-running tasks** — stops one worker hoarding queued jobs |
+| `task_time_limit` | none | Hard SIGKILL after N seconds (no cleanup) |
+| `task_soft_time_limit` | none | Raise `SoftTimeLimitExceeded` first — let the task clean up |
+| `task_reject_on_worker_lost` | `False` | Pair with `acks_late=True` — requeue on worker loss |
+| `result_expires` | `1d` | TTL on results in backend |
+| `task_serializer` | `json` | Avoid `pickle` (RCE on untrusted input) |
 
 **RabbitMQ concepts you actually need:**
-- **Exchange** routes messages
-- **Queue** stores messages until worker consumes them
-- **Routing key** decides which queue gets the task
-- **Durable queue** survives broker restart
-- **ACK** tells RabbitMQ task finished successfully
 
-**Monitoring / inspection:**
-```bash
-celery -A celery_app inspect active
-celery -A celery_app inspect registered
-celery -A celery_app status
-celery -A celery_app report
-```
+| Concept | What it is |
+|---|---|
+| Exchange | Receives messages, routes them by routing key |
+| Queue | Stores messages until consumed |
+| Binding | Rule connecting an exchange to a queue |
+| Routing key | String the exchange uses to pick the queue |
+| Durable queue | Survives broker restart (use for production tasks) |
+| ACK / NACK | Worker telling broker "done" / "redeliver this" |
 
-**Common production patterns:**
-- Separate queues by workload: `default`, `mailers`, `reports`, `cpu`
-- Run dedicated workers per queue
-- Keep tasks small and idempotent
-- Pass IDs / primitive values, not ORM objects or huge payloads
-- Store files in S3/object storage; pass object key to task
+**Production patterns:**
+
+| Pattern | Why |
+|---|---|
+| One queue per workload class (`default`, `mailers`, `reports`, `cpu`) | Slow heavy queue can't starve fast cheap queue |
+| Dedicated worker pool per queue | Independent scaling; isolated failure |
+| Pass IDs / primitives, not ORM objects | Avoid stale state, payload bloat, serialization issues |
+| Store blobs in S3 / object storage; pass key | Don't ship megabytes through the broker |
+| Idempotent tasks (DB upsert / dedupe key) | Safe under `acks_late=True` redelivery |
+| Beat as separate process (not `worker -B`) | Production reliability; only one Beat instance globally |
 
 **Common gotchas:**
-- RabbitMQ is a **broker**, not your long-term result store
-- `task_acks_late=True` can re-run a task after worker crash -> task must be idempotent
-- `worker_prefetch_multiplier > 1` can make one worker hoard long jobs
-- `celery worker -B` is okay for local dev, not ideal for production
-- If the module with `@app.task` is not imported, the worker will not register the task
-- Long CPU-bound jobs should use a separate queue / worker pool
 
-**Rule of thumb:** RabbitMQ for reliable task delivery, Celery for Python worker orchestration. Use RabbitMQ as broker, Redis as result backend, idempotent tasks, explicit queues, `acks_late`, and low prefetch for long-running jobs.
+| Symptom | Likely cause |
+|---|---|
+| Task runs twice after worker crash | `acks_late=True` + non-idempotent task |
+| One worker stalls a queue | High `worker_prefetch_multiplier` + long task |
+| Task not registered | Module containing `@app.task` not imported by worker |
+| `PENDING` forever | Task never reached broker, or backend can't see it |
+| Memory growth in worker | Long-running with leaks — set `worker_max_tasks_per_child` to recycle |
+| Pickle deserialization error | Producer/consumer mismatch on `task_serializer` |
+
+**Rule of thumb:** **RabbitMQ for reliable delivery, Redis for results, idempotent tasks always.** Set `acks_late=True` + `worker_prefetch_multiplier=1` for crash safety on long jobs. Separate queues by workload class with dedicated workers. Pass IDs, not objects. Beat runs as its own process with exactly one instance.

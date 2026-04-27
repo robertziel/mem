@@ -1,151 +1,108 @@
 ### CKS — Certified Kubernetes Security Specialist
 
-**The advanced K8s security cert.** Requires current CKA as prerequisite. Covers hardening, runtime security, supply-chain, and compliance.
+**Exam quick facts:**
 
-**Exam logistics:**
-- Code: CKS
-- Duration: 120 min, 15-20 hands-on tasks
-- Passing: 67%
-- Cost: $445 USD (one free retake)
-- Validity: 2 years
-- **Prerequisite: active CKA** (CKA must be valid on the day you take CKS)
-- Format: remote-proctored, real clusters
+| Item | Value |
+|---|---|
+| Code | CKS |
+| Duration | 120 min, 15–20 hands-on tasks |
+| Pass | 67% |
+| Cost | $445 USD (one free retake) |
+| Validity | 2 years |
+| **Prerequisite** | **Active CKA** (must be valid on exam day) |
+| Format | Remote-proctored, real cluster terminal |
 
-**Domain weights (CKS):**
+**Domain weights:**
 
-| Domain | Weight | Focus |
+| # | Domain | Weight | Headline focus |
+|---|---|---:|---|
+| 1 | Cluster Setup | 10% | CIS benchmarks, NetworkPolicy, ingress TLS, k8s upgrades |
+| 2 | Cluster Hardening | 15% | RBAC minimization, ServiceAccount hardening, external auth |
+| 3 | System Hardening | 15% | OS minimization, kernel modules, AppArmor, seccomp |
+| 4 | Microservice Vulns | 20% | Pod Security Admission, OPA/Gatekeeper or Kyverno, mTLS, Secrets |
+| 5 | Supply Chain | 20% | Image signing (cosign), SBOM, image scanning, admission verification |
+| 6 | Runtime Security | 20% | Falco, audit logs, immutability, behavioral detection |
+
+**Tool → exam role:**
+
+| Tool | What it does | Where it shows up | Memorable knob |
+|---|---|---|---|
+| `kube-bench` | Runs CIS Benchmark against a cluster | Cluster Setup | `kube-bench run --targets master,node` |
+| `kubeadm` | Cluster install/upgrade | Cluster Setup | `kubeadm upgrade plan` / `apply` |
+| Pod Security Admission (PSA) | Replaces deprecated PodSecurityPolicy (since 1.25) | Microservice Vulns | NS labels: `pod-security.kubernetes.io/enforce: restricted` |
+| Kyverno | Policy-as-code, validation/mutation/generation | Microservice Vulns + Supply Chain | `ClusterPolicy` with `validationFailureAction: enforce` (easier than OPA on the exam) |
+| OPA Gatekeeper | Policy-as-code via Rego ConstraintTemplates | Microservice Vulns | `ConstraintTemplate` + `Constraint` pair |
+| seccomp | Syscall filter on container | System Hardening | `seccompProfile: { type: RuntimeDefault }` |
+| AppArmor | MAC profile applied to container | System Hardening | Annotation `container.apparmor.security.beta.kubernetes.io/<name>: localhost/<profile>` |
+| `cosign` | Image signing | Supply Chain | `cosign sign --key cosign.key <image>` |
+| Sigstore Rekor | Transparency log for signatures | Supply Chain | Backs cosign — referenced in policy verifications |
+| Trivy / Grype | Image vulnerability scanning | Supply Chain | `trivy image <ref>` in CI |
+| Syft | SBOM generation (SPDX/CycloneDX) | Supply Chain | `syft <image> -o spdx-json` |
+| Falco | Runtime threat detection (eBPF / sysdig) | Runtime Security | YAML rules with `condition` + `output` (e.g. shell in container) |
+| Audit policy | API-server audit log | Runtime Security | `--audit-policy-file=...` + `--audit-log-path=...` |
+
+**PSA profiles:**
+
+| Profile | Allows | Use for |
 |---|---|---|
-| 1. Cluster Setup | 10% | CIS benchmarks, network policies, ingress TLS, upgrading |
-| 2. Cluster Hardening | 15% | RBAC minimization, service account hardening, external auth |
-| 3. System Hardening | 15% | OS-level (minimize packages, kernel modules), IAM, AppArmor/seccomp |
-| 4. Minimize Microservice Vulnerabilities | 20% | PSA (Pod Security Admission), OPA/Gatekeeper/Kyverno, mTLS, Secrets |
-| 5. Supply Chain Security | 20% | Image signing, SBOM, admission controllers, image scanning |
-| 6. Monitoring, Logging, and Runtime Security | 20% | Falco, audit logs, behavioral analysis, immutability |
+| `privileged` | Anything | System workloads only |
+| `baseline` | Minimally restrictive — blocks known privileged escalations | Most app namespaces |
+| `restricted` | Strictly hardened — `runAsNonRoot`, drop ALL caps, RuntimeDefault seccomp | Untrusted workloads, the CKS exam answer |
 
-**Key tools you must know:**
+NS label modes: `enforce` (block), `audit` (log), `warn` (kubectl warning). Use all three together.
 
-**Falco — runtime threat detection:**
-```yaml
-# Detect suspicious behavior (spawned shell in container, write to /etc, etc.)
-- rule: Terminal Shell in Container
-  desc: Shell spawned inside container
-  condition: container.id != host and proc.name = bash
-  output: "Shell in container (user=%user.name)"
-  priority: WARNING
-```
+**Container-level hardening checklist (PodSpec patterns):**
 
-**Pod Security Admission (PSA) — replaced PSP in 1.25:**
-```yaml
-# Namespace labels enforce standards
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: secure
-  labels:
-    pod-security.kubernetes.io/enforce: restricted     # block non-compliant
-    pod-security.kubernetes.io/audit: restricted        # log violations
-    pod-security.kubernetes.io/warn: restricted         # warn user
-# Profiles: privileged | baseline | restricted
-```
+| Field | Hardened value |
+|---|---|
+| `runAsNonRoot` | `true` |
+| `readOnlyRootFilesystem` | `true` |
+| `allowPrivilegeEscalation` | `false` |
+| `capabilities.drop` | `["ALL"]` (add only what's required) |
+| `seccompProfile.type` | `RuntimeDefault` |
+| `securityContext.privileged` | `false` (default — never set true) |
+| `automountServiceAccountToken` | `false` unless the pod actually calls the API |
 
-**OPA Gatekeeper / Kyverno — policy as code:**
-```yaml
-# Kyverno: block images from untrusted registries
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: restrict-image-registry
-spec:
-  validationFailureAction: enforce
-  rules:
-    - name: only-allowlisted-registries
-      match: { resources: { kinds: [Pod] } }
-      validate:
-        message: "Images must come from internal.registry.com"
-        pattern:
-          spec:
-            containers:
-              - image: "internal.registry.com/*"
-```
+**NetworkPolicy default-deny pattern (an exam staple):**
 
-**Image signing with cosign + verify with admission controller:**
-```bash
-# Sign an image
-cosign sign --key cosign.key internal.registry.com/app:v1.0
+| Goal | Selector / Policy |
+|---|---|
+| Default deny ingress + egress in NS | `podSelector: {}` + `policyTypes: [Ingress, Egress]` (no rules = block all) |
+| Allow ingress from one app | `from: [{ podSelector: { matchLabels: { app: web } } }]` |
+| Allow egress to DNS | `to: [{ namespaceSelector: {}, podSelector: { matchLabels: { k8s-app: kube-dns } } }]` + ports `53/UDP` and `53/TCP` |
+| Allow egress to specific external CIDR | `to: [{ ipBlock: { cidr: 10.0.0.0/8, except: [10.0.5.0/24] } }]` |
 
-# Verify in admission
-# Use Sigstore policy-controller or Kyverno image verification
-```
+**Audit policy levels (most → least verbose):**
 
-**Seccomp + AppArmor in PodSpec:**
-```yaml
-spec:
-  securityContext:
-    seccompProfile:
-      type: RuntimeDefault          # or Localhost with file path
-  containers:
-    - name: app
-      securityContext:
-        capabilities:
-          drop: ["ALL"]
-        runAsNonRoot: true
-        readOnlyRootFilesystem: true
-        allowPrivilegeEscalation: false
-```
+| Level | Captures |
+|---|---|
+| `RequestResponse` | Request body + response body |
+| `Request` | Request body only |
+| `Metadata` | Who, what, when (no body) |
+| `None` | Skip |
 
-**kube-bench for CIS Kubernetes Benchmark:**
-```bash
-# Run against a cluster
-kube-bench run --targets master,node
-# Outputs PASS/FAIL for each CIS control with remediation steps
-```
+**Supply-chain admission verification (cosign + Kyverno):**
 
-**Audit logging:**
-```yaml
-# /etc/kubernetes/audit-policy.yaml
-apiVersion: audit.k8s.io/v1
-kind: Policy
-rules:
-  - level: RequestResponse                 # most verbose
-    resources: [{ group: "", resources: ["secrets"] }]
-  - level: Metadata
-    omitStages: ["RequestReceived"]
-# Apply via kube-apiserver flags:
-#   --audit-policy-file=/etc/kubernetes/audit-policy.yaml
-#   --audit-log-path=/var/log/kube-audit.log
-```
+| Step | Action |
+|---|---|
+| 1. Sign image | `cosign sign --key cosign.key registry/app:v1` |
+| 2. Cluster policy | Kyverno `ClusterPolicy` with `verifyImages` rule referencing the public key |
+| 3. Block on fail | `validationFailureAction: enforce` |
+| 4. Audit signing record | Sigstore Rekor transparency log |
 
-**Network policy denial (default-deny pattern):**
-```yaml
-# Block all ingress/egress in a namespace, then allow-list
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny
-spec:
-  podSelector: {}                          # all pods
-  policyTypes: [Ingress, Egress]
-```
+**Study path (60–100 hours if CKA-fresh):**
 
-**Supply chain security exam topics:**
-- ImagePolicyWebhook admission controller (legacy) vs Kyverno/Gatekeeper image verification
-- Trivy/Grype image scanning in CI
-- SBOM generation (Syft → SPDX format)
-- Cosign image signing + Sigstore
-- Sigstore Rekor (transparency log)
+| Resource | Why |
+|---|---|
+| KodeKloud CKS (Mumshad) | Best paced video course |
+| Linux Foundation CKS (official) | Free with exam, syllabus-aligned |
+| killer.sh CKS | Two free attempts with the exam — harder than the real thing |
+| "Kubernetes Security and Observability" book | Concept depth |
+| Aqua Security K8s Security book (free PDF) | Reference |
 
-**Study path:**
-- KodeKloud CKS course (Mumshad)
-- Linux Foundation CKS course (official)
-- killer.sh CKS practice (much harder than real exam)
-- "Kubernetes Security and Observability" book
-- Aqua Security's Kubernetes Security book (free PDF)
+**Cross-references in this corpus:**
 
-**Existing memos:**
-- `devops/kubernetes/` — RBAC, probes, secrets
-- `devops/security/container_security_image_scanning_trivy_rootless_pss.md`
-- `design_patterns/payment_network/pci_dss_scope_reduction_tokenization_encryption_segmentation.md`
+- [devops/security/container_security_image_scanning_trivy_rootless_pss.md](../devops/security/container_security_image_scanning_trivy_rootless_pss.md)
+- `devops/kubernetes/` — RBAC, probes, secrets cheatsheets
 
-**Who it's for:** DevSecOps engineers, platform engineers in regulated industries. Prep time: 60-100 hours if you have CKA recently; less if you're already security-focused.
-
-**Rule of thumb:** CKS is about applying security tooling (Falco, Gatekeeper, Kyverno, cosign, kube-bench) rather than memorizing K8s internals. Master one policy engine (Kyverno is easier than OPA/Gatekeeper for the exam). Default-deny network policies are exam staples. Runtime security (Falco rules) and supply-chain (image signing + admission verification) get heavy weight.
+**Rule of thumb:** CKS is about *applying* tooling, not memorizing internals. **Master one policy engine — pick Kyverno over OPA/Gatekeeper** (less Rego, more YAML). **Default-deny NetworkPolicy** is the most-asked single pattern. **PSA at `restricted`** + drop-ALL caps + `runAsNonRoot` + `RuntimeDefault` seccomp is the boilerplate hardened PodSpec. The 40% supply-chain-and-runtime weight means cosign + Falco + audit policy must be muscle memory.
