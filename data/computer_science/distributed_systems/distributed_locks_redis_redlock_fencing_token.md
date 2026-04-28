@@ -1,77 +1,220 @@
-### Distributed Locks
+### Distributed Locks — Redis, Redlock, Fencing Tokens
+
+**Definition:** a **distributed lock** gives one process exclusive access to a shared resource across machines. Local mutexes don't work; you need an out-of-process coordinator (Redis, etcd, ZooKeeper). Beware: distributed locks are **inherently shaky** under network partitions and process pauses — prefer **idempotency** when possible.
 
 **The problem:**
-- Multiple processes/services need exclusive access to a resource
-- Local mutexes don't work across processes or machines
-- Examples: preventing double-processing a job, exclusive file access, leader election
 
-**Redis distributed lock (Redlock concept):**
-```
-SET lock_key unique_value NX EX 30
-# NX = only set if not exists (acquire lock)
-# EX 30 = auto-expire after 30 seconds (safety net)
-```
+| Single-process | Distributed |
+|---|---|
+| `mutex.lock()` works | No — no shared memory |
+| Easy semantics | Network can fail / partition |
+| No partial failure | Lock holder may be GC-paused |
+| `try / finally` releases reliably | Lock holder may crash mid-section |
 
-**Acquire:**
+**Three real options:**
+
+| Tool | Mechanism | Strength | Latency |
+|---|---|---|---|
+| **Redis** (single node) | `SET NX EX` | Best-effort, cheap | < 1ms |
+| **Redis Redlock** (multi-node) | Quorum on N nodes | Stronger but **controversial** | Few ms |
+| **etcd / ZooKeeper** | Consensus (Raft / ZAB) | Strong consistency | Tens of ms |
+
+**Redis single-node lock — the basic recipe:**
+
 ```python
-lock_value = str(uuid4())  # unique per client
+import uuid
+
+lock_value = str(uuid.uuid4())   # unique per acquirer
 acquired = redis.set("lock:order:123", lock_value, nx=True, ex=30)
+
 if acquired:
     try:
         do_critical_work()
     finally:
-        release_lock("lock:order:123", lock_value)
+        # Atomic check-and-delete via Lua
+        release_script = """
+        if redis.call('get', KEYS[1]) == ARGV[1] then
+          return redis.call('del', KEYS[1])
+        else
+          return 0
+        end
+        """
+        redis.eval(release_script, 1, "lock:order:123", lock_value)
 ```
 
-**Release (must be atomic - check then delete):**
-```lua
--- Redis Lua script (atomic)
-if redis.call("get", KEYS[1]) == ARGV[1] then
-    return redis.call("del", KEYS[1])
-end
-return 0
+| Step | Why |
+|---|---|
+| `SET NX` | Atomic acquire (fails if already held) |
+| `EX 30` | Auto-expire — if holder crashes, lock unjams |
+| Unique value | Identify the holder |
+| Lua release | Atomic check-then-delete (prevents releasing someone else's lock) |
+| `try / finally` | Best-effort release |
+
+**Why the unique value matters:**
+
 ```
-- Only the lock holder can release (compare unique_value)
-- Prevents releasing someone else's lock after your lock expired
-
-**Lock pitfalls:**
-
-**Fencing token problem:**
+Without unique value:
+  Client A acquires lock, takes 35s (longer than EX 30)
+  Lock auto-expires
+  Client B acquires lock
+  Client A finishes, calls DEL → deletes B's lock!
+  → Two clients now think they hold the lock
 ```
-Client A acquires lock (token 1)
-Client A pauses (GC, network delay)
-Lock expires
-Client B acquires lock (token 2)
-Client A resumes, thinks it still holds lock
-Both A and B operate on shared resource!
+
+| Defense | Detail |
+|---|---|
+| Compare value before delete | Only holder can release |
+| Lua atomic | Otherwise check-and-delete has TOCTOU race |
+| Increase EX longer than worst-case work | But you can't reliably know the upper bound |
+
+**The fundamental fencing-token problem:**
+
 ```
-- Solution: fencing token (monotonically increasing) - resource rejects operations with old tokens
+T1: Client A acquires lock (token = 33)
+T2: Client A is paused (long GC, network freeze)
+T3: Lock TTL expires
+T4: Client B acquires lock (token = 34)
+T5: Client B writes to resource (token 34)
+T6: Client A wakes up, writes to resource (token 33)
+T7: Resource now has stale write from A
+```
 
-**Redlock algorithm (multi-node Redis):**
-- Acquire lock on N/2+1 (majority) of N independent Redis nodes
-- If majority acquired within timeout -> lock is held
-- Controversial: Martin Kleppmann argues it's not safe for correctness-critical use
-- Fine for efficiency (preventing duplicate work), not for correctness
+| Defense | Detail |
+|---|---|
+| **Fencing token** | Monotonically increasing token per acquisition |
+| Resource validates token on each operation | Reject if token < latest seen |
+| Provided by ZooKeeper / etcd lease epoch | Built-in |
+| **Redis does NOT provide fencing tokens** | Major Kleppmann critique |
 
-**etcd/ZooKeeper locks (stronger guarantees):**
-- Based on consensus protocol (Raft/ZAB)
-- Lease-based: lock has a TTL, must be renewed (heartbeat)
-- Watch mechanism: notified when lock is released
-- Stronger than Redis but higher latency
+**Fencing in practice:**
 
-**When to use distributed locks:**
-| Scenario | Need lock? | Alternative |
-|----------|-----------|-------------|
-| Prevent double-processing | Yes | Idempotency key |
-| Leader election | Yes | etcd/ZooKeeper lease |
-| Rate limiting | No | Token bucket (no lock) |
-| Unique constraint | No | Database unique index |
-| Inventory reservation | Maybe | Optimistic locking (DB) |
+```
+Storage operation:
+  if request.token >= storage.last_token:
+    storage.last_token = request.token
+    apply(request)
+  else:
+    reject (stale token)
+```
 
-**Best practices:**
-- Always set a TTL (prevent deadlock if holder crashes)
-- Keep lock duration short (do minimal work under lock)
-- Use unique owner ID to prevent releasing someone else's lock
-- Consider: do you really need a lock, or would idempotency work?
+> Fencing tokens are how you make distributed locks safe under pauses. **The resource must enforce the fence**, not the lock service.
 
-**Rule of thumb:** Prefer idempotency over locking when possible. Use Redis locks for efficiency (duplicate prevention). Use etcd/ZooKeeper locks for correctness (leader election). Always set TTL. Keep critical sections short.
+**Redlock (multi-node Redis) — the controversy:**
+
+| Property | Detail |
+|---|---|
+| Acquire on **N/2 + 1** of N independent Redis nodes | Quorum |
+| Each node has independent TTL | Same lock key |
+| Considered held if majority succeed within timeout | Best-effort |
+| **Martin Kleppmann's critique (2016)** | Not safe under clock drift / GC pauses; no fencing token |
+| Antirez's response | Pragmatic concession: it's for efficiency, not correctness |
+| Industry consensus | OK for **efficiency** (avoid duplicate work); **not** for correctness-critical |
+
+**etcd / ZooKeeper — when correctness matters:**
+
+| Property | Detail |
+|---|---|
+| Based on **consensus protocol** (Raft / ZAB) | Survives partitions |
+| Lease-based locks | TTL with heartbeat renewal |
+| Watch mechanism | Notified when lock released |
+| Fencing tokens (epoch / revision) | Built-in |
+| Higher latency | Tens of ms |
+| Stronger guarantees | Linearizable |
+| Use cases | Leader election, config coordination, schema migrations |
+
+**Decision matrix — do you actually need a lock?**
+
+| Scenario | Best fit |
+|---|---|
+| Prevent duplicate job execution | **Idempotency key** > lock |
+| Inventory reservation | **DB row lock** or optimistic version |
+| Leader election (one writer) | **etcd / ZooKeeper lease** |
+| Avoiding redundant work (cron job dedup) | Redis lock (efficiency) |
+| Single-tenant resource (file processing) | Redis lock (efficiency) |
+| Money transfer | DB transaction + isolation |
+| Rate limiting | **Token bucket** — no lock needed |
+| Unique constraint | **DB unique index** — no lock needed |
+
+**Idempotency vs locking — prefer idempotency:**
+
+| With lock | With idempotency |
+|---|---|
+| Lock to prevent duplicate processing | Just process; dedupe by ID |
+| Network failure mid-section is unsafe | Retries are safe |
+| Need TTL guesses | No timing concerns |
+| Single point of failure | Distributed-friendly |
+| Locks complicate retries | Retries are the model |
+
+**Best practices for distributed locks:**
+
+| Practice | Why |
+|---|---|
+| **Always set a TTL** | Prevent deadlock if holder crashes |
+| **Keep critical section short** | Less risk of pause / partition |
+| **Use unique owner IDs** | Don't release someone else's lock |
+| **Use Lua for release** | Atomic check-then-delete |
+| **Add fencing tokens at the resource** | Survive process pauses |
+| **Prefer idempotency** | Locks are last resort |
+| **Consider auto-extending the lease** | Heartbeat for long work |
+
+**Common pitfalls:**
+
+| Pitfall | Effect |
+|---|---|
+| No TTL — holder crashes | Permanent deadlock |
+| TTL too short — work takes longer | Lock expires mid-section |
+| TTL too long — holder crashes | Long wait to recover |
+| No unique value — release by anyone | Lock released by another client |
+| Sync clock differences | Multi-node Redis quorum unreliable |
+| GC pause / network freeze | Holder thinks it still has lock |
+| Using Redis locks for money | Wrong tool — use DB transactions + fencing |
+| Forgetting to renew long-running lease | Released mid-job |
+| Believing single-node Redis is HA | Sentinel / Cluster recovery has races |
+| Mixing lock and non-lock paths | One unguarded path negates the lock |
+
+**Code pattern: lease + heartbeat for long work:**
+
+```python
+import threading
+
+acquired = redis.set(key, owner, nx=True, ex=30)
+if not acquired:
+    return
+
+stop = threading.Event()
+
+def heartbeat():
+    while not stop.is_set():
+        redis.expire(key, 30)   # only if we still own it (better: Lua)
+        stop.wait(10)
+
+t = threading.Thread(target=heartbeat, daemon=True)
+t.start()
+
+try:
+    do_long_work()
+finally:
+    stop.set()
+    t.join()
+    release_lock(key, owner)
+```
+
+**Decision matrix (final):**
+
+| Need | Pick |
+|---|---|
+| Best-effort dedup | Redis single-node `SET NX EX` |
+| Efficiency lock across multiple Redises | Redlock (with caveats) |
+| Correctness-critical leader election | etcd / ZooKeeper |
+| Money / inventory | DB transactions + optimistic version + fencing |
+| Unique-only-once constraint | DB unique index |
+| At-least-once + dedupe | Idempotency key |
+
+**Cross-references:**
+
+- Idempotency keys: [idempotency_*.md](idempotency_key_exactly_once_deduplication.md)
+- Optimistic vs pessimistic locking (DB): [locking_*.md](../database_engineering/postgresql/locking_optimistic_vs_pessimistic.md)
+- Consensus / Raft: [consensus_raft_*.md](consensus_raft_paxos_leader_election.md)
+- CRDTs (lock-free convergence): [eventual_consistency_*.md](eventual_consistency_crdts_lww_conflict_resolution.md)
+
+**Rule of thumb:** **Prefer idempotency over distributed locks.** When you must lock, use **Redis `SET NX EX` + Lua release** for **efficiency** (preventing duplicate work) and **etcd / ZooKeeper** for **correctness** (leader election, schema coordination). **Redis Redlock is fine for efficiency, not correctness** — it lacks fencing tokens. Always set a **TTL**, **unique owner ID**, **short critical section**, and add **fencing at the resource** to survive GC pauses.
