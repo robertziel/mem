@@ -29,9 +29,15 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Range sum/min + range update | Segment tree (lazy) | O(log n) | O(log n) |
 | Range min / max / gcd, **static** array | Sparse table | **O(1) query** | O(n log n) build |
 | Awkward range op (mode, distinct, K-th) | Sqrt decomposition / Mo's | O(√n) | O(√n) |
+| K-th order statistic in range (online) | Persistent segment tree | O(log V) | O(log n) per update |
+| Tree path queries / updates | Heavy-light decomposition + segment tree | O(log² n) | O(log² n) |
+| Tree all-pairs aggregation | Centroid decomposition | O(n log n) total | — |
+| Spatial NN / range, low-d (k ≤ 10) | K-D tree | O(log n) avg | O(log n) avg |
 | Probabilistic membership at scale | Bloom filter (or Cuckoo) | O(k) hash | O(k) hash |
 | Cardinality estimate | HyperLogLog | O(1) | O(1) |
 | Frequency estimate | Count-min sketch | O(k) | O(k) |
+| Set similarity (Jaccard) at scale | MinHash + LSH | O(K) | O(K · |S|) |
+| Tamper-evident commitment to a set | Merkle tree | O(log n) proof | O(log n) update |
 | FIFO order | Queue / deque | O(1) | O(1) |
 | LIFO order | Stack | O(1) | O(1) |
 | Both ends | Deque | O(1) | O(1) |
@@ -79,8 +85,13 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Bridges / articulation points | DFS with low-link | O(V+E) |
 | Bipartite check | BFS / DFS 2-coloring | O(V+E) |
 | Many LCA / K-th-ancestor queries on a rooted tree | Binary lifting (or Euler tour + sparse table) | O(log N) / O(1) per query |
-| Max bipartite matching | Edmonds-Karp / Dinic on capacity-1 graph | O(E·√V) |
+| Max bipartite matching | **Hopcroft-Karp** | O(E·√V) |
+| Min-cost perfect bipartite matching | Hungarian (Kuhn-Munkres) | O(n³) |
 | Max flow / min cut / project selection | Edmonds-Karp / Dinic | O(V·E²) / O(V²·E) |
+| Min-cost max flow (with edge costs) | MCMF (SPFA / Dijkstra + potentials) | O(F · V · E) |
+| 2-SAT (boolean satisfiability, 2 literals / clause) | Implication graph + SCC | O(N + M) |
+| Eulerian path / circuit (every edge once) | Hierholzer | O(V + E) |
+| Shortest path between two specific nodes | **Bidirectional Dijkstra** | ~√V faster than plain |
 
 #### Paradigm picker
 
@@ -90,7 +101,7 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Optimal value, overlapping subproblems | Dynamic programming |
 | Optimal value, locally-optimal step proves global | Greedy |
 | Big problem → independent halves | Divide & conquer |
-| Optimal value, NP-hard at general n | Backtracking + branch-and-bound |
+| Optimal value, NP-hard at general n | **Branch and bound** (backtracking + admissible bounds) |
 
 #### DP pattern picker
 
@@ -166,7 +177,11 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Vector / Lamport clocks | Logical time in distributed systems |
 | Backpropagation + Adam | Train any differentiable model — chain rule + adaptive optimizer |
 | Viterbi | Most-likely path in HMM via max-product DP |
-| K-means / DBSCAN | Clustering — Lloyd iteration / density-reachable |
+| K-means (Lloyd's + k-means++) | Partition into K Voronoi clusters by Euclidean distance |
+| Merkle tree | Tamper-evident commitment to a set (blockchain, Git, IPFS) |
+| Count-min sketch / HyperLogLog / MinHash | Streaming frequency / cardinality / similarity |
+| K-D tree | Low-dimensional NN / range queries (k ≤ 10) |
+| Branch and bound | Exact NP-hard optimization with admissible lower bounds |
 
 #### Common cross-topic mistakes
 
