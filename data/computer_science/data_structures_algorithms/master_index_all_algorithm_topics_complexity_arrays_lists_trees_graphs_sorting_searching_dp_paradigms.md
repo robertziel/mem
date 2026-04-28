@@ -29,6 +29,9 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Range sum/min + range update | Segment tree (lazy) | O(log n) | O(log n) |
 | Range min / max / gcd, **static** array | Sparse table | **O(1) query** | O(n log n) build |
 | Awkward range op (mode, distinct, K-th) | Sqrt decomposition / Mo's | O(√n) | O(√n) |
+| Probabilistic membership at scale | Bloom filter (or Cuckoo) | O(k) hash | O(k) hash |
+| Cardinality estimate | HyperLogLog | O(1) | O(1) |
+| Frequency estimate | Count-min sketch | O(k) | O(k) |
 | FIFO order | Queue / deque | O(1) | O(1) |
 | LIFO order | Stack | O(1) | O(1) |
 | Both ends | Deque | O(1) | O(1) |
@@ -52,6 +55,10 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Single-element update + prefix query | Fenwick tree |
 | Substring search, single pattern | KMP / Z |
 | Substring search, rolling hash | Rabin-Karp |
+| Many substring queries on one text | Suffix array + LCP |
+| Random sample from a stream of unknown length | Reservoir sampling |
+| Uniform random permutation | Fisher-Yates shuffle |
+| Polynomial / big-int multiplication, convolution | FFT / NTT |
 
 #### Graph algorithm picker (by edge weight & query)
 
@@ -100,6 +107,7 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Bitmask DP | `dp[mask][last]` | TSP, Assignment |
 | Digit DP | (position, tight, accumulator) | Digit-sum constraints |
 | State-machine | `dp[i][state]` | Stock cooldown, k transactions |
+| HMM decoding (max-product) | `δ[t][state]` + back-pointers | Viterbi: speech, POS, error correction |
 | Probability | Float recurrence | Knight on chessboard, dice |
 
 #### Sorting algorithm picker
@@ -133,8 +141,32 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Number theory | GCD / LCM (Euclid), modular arithmetic, modular inverse, Fermat, modular exponentiation |
 | Primes | Sieve of Eratosthenes, linear sieve + SPF, factorization, Miller-Rabin, Euler's totient |
 | Combinatorics | `C(n, k)`, Pascal's triangle, stars & bars, Catalan, inclusion-exclusion |
-| String matching | KMP (failure function), Rabin-Karp (rolling hash), Z-algorithm, Aho-Corasick (multi-pattern), Manacher (longest palindromic substring in O(n)) |
+| String matching | KMP (failure function), Rabin-Karp (rolling hash), Z-algorithm, Aho-Corasick (multi-pattern), Manacher (longest palindromic substring in O(n)), Suffix array + LCP |
 | Computational geometry | Cross product / orientation, convex hull (Andrew), segment intersection, shoelace area, sweepline / skyline |
+| Numerical / FFT | FFT (Cooley-Tukey), NTT (modular FFT), polynomial / big-int multiplication, convolution |
+| Fractals | Mandelbrot / Julia escape-time iteration |
+
+#### Game tree / search
+
+| Topic | Use |
+|---|---|
+| Minimax + alpha-beta pruning | Two-player zero-sum games (chess, connect-4); alpha-beta + iterative deepening + transposition tables |
+| Negamax | Minimax with single-function symmetry |
+| MCTS | High-branching games (Go); selection / expansion / simulation / backprop |
+| A* | Single-agent shortest path with heuristic |
+| Iterative deepening (IDDFS / IDA*) | Memory-bounded depth-first |
+
+#### Distributed / online / ML primitives
+
+| Topic | Use |
+|---|---|
+| Consistent hashing | Distribute keys with minimal rebalance on resize; ring + virtual nodes |
+| Paxos / Raft | Replicated log / state machine with majority quorum |
+| 2-phase commit | Atomic transaction across participants (blocks on coordinator failure) |
+| Vector / Lamport clocks | Logical time in distributed systems |
+| Backpropagation + Adam | Train any differentiable model — chain rule + adaptive optimizer |
+| Viterbi | Most-likely path in HMM via max-product DP |
+| K-means / DBSCAN | Clustering — Lloyd iteration / density-reachable |
 
 #### Common cross-topic mistakes
 
