@@ -22,6 +22,8 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | O(1) access by index | Array | O(1) | O(1) end / O(n) middle |
 | O(1) lookup by key | Hash map | O(1) avg | O(1) avg |
 | Ordered range query / sorted iter | BST / TreeMap | O(log n) | O(log n) |
+| Concurrent / lock-free ordered structure | Skip list (Redis ZSET, ConcurrentSkipListMap) | O(log n) expected | O(log n) expected |
+| Ordered set with split / merge by key | Treap (or implicit treap for arrays) | O(log n) expected | O(log n) expected |
 | Top-K, scheduling, k-way merge | Heap | O(log n) extract | O(log n) |
 | Prefix queries / autocomplete | Trie | O(L) | O(L) |
 | Components / equivalence classes | Union-Find | ~O(α(N)) | ~O(α(N)) |
@@ -92,6 +94,8 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | 2-SAT (boolean satisfiability, 2 literals / clause) | Implication graph + SCC | O(N + M) |
 | Eulerian path / circuit (every edge once) | Hierholzer | O(V + E) |
 | Shortest path between two specific nodes | **Bidirectional Dijkstra** | ~√V faster than plain |
+| Global minimum cut (undirected, no s/t) | Stoer-Wagner | O(V³) |
+| Directed MST (rooted arborescence) | Edmonds / Chu-Liu | O(V·E) |
 
 #### Paradigm picker
 
@@ -149,11 +153,11 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Topic | Use |
 |---|---|
 | Bit manipulation | XOR pair finding, subset enumeration via masks, popcount, Kernighan |
-| Number theory | GCD / LCM (Euclid), modular arithmetic, modular inverse, Fermat, modular exponentiation |
+| Number theory | GCD / LCM (Euclid), modular arithmetic, modular inverse, Fermat, modular exponentiation, **Möbius function & inversion**, **Tonelli-Shanks** (modular square root) |
 | Primes | Sieve of Eratosthenes, linear sieve + SPF, factorization, Miller-Rabin, Euler's totient |
-| Combinatorics | `C(n, k)`, Pascal's triangle, stars & bars, Catalan, inclusion-exclusion |
-| String matching | KMP (failure function), Rabin-Karp (rolling hash), Z-algorithm, Aho-Corasick (multi-pattern), Manacher (longest palindromic substring in O(n)), Suffix array + LCP |
-| Computational geometry | Cross product / orientation, convex hull (Andrew), segment intersection, shoelace area, sweepline / skyline |
+| Combinatorics | `C(n, k)`, Pascal's triangle, stars & bars, Catalan, inclusion-exclusion, **Lucas's theorem** (`C(n, k) mod p` for huge n) |
+| String matching | KMP, Rabin-Karp, Z-algorithm, Aho-Corasick, Manacher, Suffix array + LCP, **Suffix automaton + BWT / FM-index** |
+| Computational geometry | Cross product / orientation, convex hull (Andrew), segment intersection, shoelace area, sweepline / skyline, **Voronoi / Delaunay (Fortune's sweepline)** |
 | Numerical / FFT | FFT (Cooley-Tukey), NTT (modular FFT), polynomial / big-int multiplication, convolution |
 | Fractals | Mandelbrot / Julia escape-time iteration |
 
@@ -163,9 +167,11 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 |---|---|
 | Minimax + alpha-beta pruning | Two-player zero-sum games (chess, connect-4); alpha-beta + iterative deepening + transposition tables |
 | Negamax | Minimax with single-function symmetry |
-| MCTS | High-branching games (Go); selection / expansion / simulation / backprop |
+| **MCTS** (UCT / PUCT) | High-branching games (Go); selection / expansion / simulation / backprop; AlphaZero with neural priors |
+| **Sprague-Grundy / Nim** | Impartial combinatorial games — Grundy number via mex; XOR across independent sub-games |
 | A* | Single-agent shortest path with heuristic |
 | Iterative deepening (IDDFS / IDA*) | Memory-bounded depth-first |
+| **Simulated annealing** | Metaheuristic for hard optimization (TSP, VLSI); Metropolis criterion + cooling schedule |
 
 #### Distributed / online / ML primitives
 
@@ -176,6 +182,7 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | 2-phase commit | Atomic transaction across participants (blocks on coordinator failure) |
 | Vector / Lamport clocks | Logical time in distributed systems |
 | Backpropagation + Adam | Train any differentiable model — chain rule + adaptive optimizer |
+| Gradient boosting (XGBoost / LightGBM / CatBoost) | Tabular ML default; sequential trees on the loss gradient |
 | Viterbi | Most-likely path in HMM via max-product DP |
 | K-means (Lloyd's + k-means++) | Partition into K Voronoi clusters by Euclidean distance |
 | Merkle tree | Tamper-evident commitment to a set (blockchain, Git, IPFS) |
