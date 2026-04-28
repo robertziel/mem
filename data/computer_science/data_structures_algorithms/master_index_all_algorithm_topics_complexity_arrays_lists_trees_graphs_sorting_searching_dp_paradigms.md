@@ -156,8 +156,9 @@ Single-glance picker for live recall. Each cell points at a deep memo (search by
 | Number theory | GCD / LCM (Euclid), modular arithmetic, modular inverse, Fermat, modular exponentiation, **Möbius function & inversion**, **Tonelli-Shanks** (modular square root) |
 | Primes | Sieve of Eratosthenes, linear sieve + SPF, factorization, Miller-Rabin, Euler's totient |
 | Combinatorics | `C(n, k)`, Pascal's triangle, stars & bars, Catalan, inclusion-exclusion, **Lucas's theorem** (`C(n, k) mod p` for huge n) |
-| String matching | KMP, Rabin-Karp, Z-algorithm, Aho-Corasick, Manacher, Suffix array + LCP, **Suffix automaton + BWT / FM-index** |
-| Computational geometry | Cross product / orientation, convex hull (Andrew), segment intersection, shoelace area, sweepline / skyline, **Voronoi / Delaunay (Fortune's sweepline)** |
+| String matching | KMP, Rabin-Karp, Z-algorithm, Aho-Corasick, Manacher, Suffix array + LCP, **Suffix automaton (SAM)**, **Burrows-Wheeler transform + FM-index** |
+| Computational geometry | Cross product / orientation, convex hull (Andrew), segment intersection, shoelace area, point-in-polygon, **Voronoi / Delaunay (Fortune's sweepline)** |
+| Sweepline / event processing | Skyline (heap + lazy delete), Bentley-Ottmann segment intersection, rectangle union area, meeting rooms / max overlap |
 | Numerical / FFT | FFT (Cooley-Tukey), NTT (modular FFT), polynomial / big-int multiplication, convolution |
 | Fractals | Mandelbrot / Julia escape-time iteration |
 

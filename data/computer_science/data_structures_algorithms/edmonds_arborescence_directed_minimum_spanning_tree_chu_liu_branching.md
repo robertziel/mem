@@ -26,68 +26,37 @@
 
 > The recursion bottoms out at a graph with no cycle in the chosen-edges set.
 
-#### Implementation (Chu-Liu / Edmonds, O(V·E))
+#### Implementation — Chu-Liu loop skeleton
 
 ```python
 def min_arborescence(n, edges, root):
-    """edges: list of (u, v, w). Returns (cost, edges_in_tree) or None if no arborescence."""
-    # work on a copy
-    INF = float('inf')
-    in_edge = [None] * n; in_w = [INF] * n            # min in-edge per vertex
-    cost = 0
-
     while True:
-        for v in range(n):
-            if v == root: continue
-            in_w[v] = INF; in_edge[v] = None
+        # 1. each non-root v picks its cheapest incoming edge
+        in_edge = [None] * n; in_w = [float('inf')] * n
         for i, (u, v, w) in enumerate(edges):
             if v != root and w < in_w[v]:
                 in_w[v] = w; in_edge[v] = i
-        # check existence
-        for v in range(n):
-            if v != root and in_edge[v] is None:
-                return None
-        cost = sum(in_w[v] for v in range(n) if v != root)
+        if any(in_edge[v] is None for v in range(n) if v != root):
+            return None                               # not all reachable
 
-        # detect cycles in the in-edge relation
-        comp = [-1] * n; idx = [-1] * n; cnt = 0
-        for v in range(n):
-            if v == root: continue
-            chain = []; u = v
-            while u != root and idx[u] == -1 and comp[u] == -1:
-                idx[u] = v; chain.append(u)
-                u = edges[in_edge[u]][0]
-            if u != root and idx[u] == v:
-                # found a cycle
-                while True:
-                    w = chain.pop(); comp[w] = cnt
-                    if w == u: break
-                cnt += 1
-            for w in chain: comp[w] = -2
+        # 2. detect cycles among chosen edges; if none, we have the arborescence
+        cycles = find_cycles_in(in_edge)              # returns list of cycle node-sets
+        if not cycles:
+            return sum(in_w[v] for v in range(n) if v != root)
 
-        if cnt == 0:
-            return cost, [in_edge[v] for v in range(n) if v != root]
-
-        # rename non-cycle vertices to fresh ids
-        for v in range(n):
-            if comp[v] == -2:
-                comp[v] = cnt; cnt += 1
-        if comp[root] == -1: comp[root] = cnt; cnt += 1
-
-        # rebuild edges in the contracted graph
-        new_edges = []
-        for i, (u, v, w) in enumerate(edges):
-            cu, cv = comp[u], comp[v]
-            if cu != cv:
-                new_w = w - (in_w[v] if comp[v] != cnt else 0)
-                # ↑ subtract incoming-cycle-edge weight if v was in a contracted cycle
-                new_edges.append((cu, cv, new_w))
-        edges = new_edges
-        n = cnt
-        root = comp[root]
+        # 3. contract each cycle into a super-node; adjust weights
+        edges, n, root = contract(edges, cycles, in_w, root)
 ```
 
-> The above is one of several presentations; **Tarjan's O(E + V log V)** version uses meldable heaps (Fibonacci) to track minimum-incoming for each component.
+| Step | Detail |
+|---|---|
+| **Pick min in-edge** | `in_edge[v] = argmin_w (u, v) edges` |
+| **Cycle detection** | Walk `in_edge` chain backwards from each `v`; mark visit-order |
+| **Contraction** | Merge cycle into one node; adjust each external edge's weight by `−in_w[dest]` for its cycle entry |
+| **Recurse** | On the smaller (contracted) graph |
+| **Expansion** | After base case, for each contracted cycle drop the one cycle edge whose destination receives the new external in-edge |
+
+> Tarjan's **O(E + V log V)** version uses meldable heaps (Fibonacci) to track minimum-incoming for each component.
 
 #### Use cases
 

@@ -15,62 +15,39 @@
 
 > Each path from any node to the root crosses at most **log₂(n) light edges** (because moving up a light edge at least halves the subtree size).
 
-#### Build (two DFS passes)
+#### Build — two DFS passes (skeleton)
 
 ```python
-import sys
-sys.setrecursionlimit(10**6)
+# DFS-1: compute parent, depth, size, heavy child (max-size child)
+# DFS-2: assign pos[v] in DFS order, visiting heavy child FIRST so heavy paths are contiguous
+#        head[v] = topmost node of v's heavy path
 
-class HLD:
-    def __init__(self, n, adj, root=0):
-        self.n = n; self.adj = adj
-        self.parent = [-1] * n
-        self.depth  = [0] * n
-        self.size   = [1] * n
-        self.heavy  = [-1] * n
-        self._dfs1(root, -1)
-        self.head   = [0] * n
-        self.pos    = [0] * n
-        self._cur   = 0
-        self._dfs2(root, root)
+def lca(u, v):
+    while head[u] != head[v]:
+        if depth[head[u]] < depth[head[v]]: u, v = v, u
+        u = parent[head[u]]
+    return u if depth[u] < depth[v] else v
 
-    def _dfs1(self, u, p):
-        max_size = 0
-        for v in self.adj[u]:
-            if v == p: continue
-            self.parent[v] = u; self.depth[v] = self.depth[u] + 1
-            self._dfs1(v, u)
-            self.size[u] += self.size[v]
-            if self.size[v] > max_size:
-                max_size = self.size[v]; self.heavy[u] = v
-
-    def _dfs2(self, u, h):
-        self.head[u] = h
-        self.pos[u] = self._cur; self._cur += 1
-        if self.heavy[u] != -1:
-            self._dfs2(self.heavy[u], h)             # heavy child first
-        for v in self.adj[u]:
-            if v != self.parent[u] and v != self.heavy[u]:
-                self._dfs2(v, v)                      # new chain starts at v
-
-    def lca(self, u, v):
-        while self.head[u] != self.head[v]:
-            if self.depth[self.head[u]] < self.depth[self.head[v]]: u, v = v, u
-            u = self.parent[self.head[u]]
-        return u if self.depth[u] < self.depth[v] else v
-
-    def path_query(self, u, v, segtree_query):
-        res = 0                                       # combine appropriately
-        while self.head[u] != self.head[v]:
-            if self.depth[self.head[u]] < self.depth[self.head[v]]: u, v = v, u
-            res = max(res, segtree_query(self.pos[self.head[u]], self.pos[u]))
-            u = self.parent[self.head[u]]
-        if self.depth[u] > self.depth[v]: u, v = v, u
-        res = max(res, segtree_query(self.pos[u], self.pos[v]))
-        return res
+def path_query(u, v, segtree_query):
+    res = identity
+    while head[u] != head[v]:
+        if depth[head[u]] < depth[head[v]]: u, v = v, u
+        res = combine(res, segtree_query(pos[head[u]], pos[u]))
+        u = parent[head[u]]
+    if depth[u] > depth[v]: u, v = v, u
+    return combine(res, segtree_query(pos[u], pos[v]))
 ```
 
-> Pair with a **segment tree** keyed on `pos[v]`. Each path query is **O(log n) chains × O(log n) segment-tree query = O(log² n) total**.
+| Helper | Role |
+|---|---|
+| DFS-1 (`size, heavy, parent, depth`) | Bottom-up sizes; `heavy[u]` = child with max subtree |
+| DFS-2 (`pos, head`) | Pre-order visit; **heavy child first** so each heavy path occupies a contiguous range of `pos` |
+| `head[v]` | Topmost node of `v`'s heavy path |
+| `lca` | Climb chains; deeper-`head` side moves to its chain head's parent |
+| `path_query` | Same climb, but query the segment tree on each chain segment |
+| Subtree query | Range `[pos[v], pos[v] + size[v])` on the segment tree |
+
+> Pair with a **segment tree** keyed on `pos[v]`. Path query: **O(log n) chains × O(log n) segment-tree op = O(log² n)** total.
 
 #### Operations cost
 

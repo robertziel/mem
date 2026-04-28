@@ -20,59 +20,36 @@
 
 > **UCB1 balances exploitation** (high `Q`) **and exploration** (low `N`). Iterate until time runs out; pick the **most-visited** child of the root as the move.
 
-#### Implementation skeleton
+#### Implementation — four-phase loop
 
 ```python
 import math, random
-
-class Node:
-    __slots__ = ("state", "parent", "action", "children", "wins", "visits", "untried")
-    def __init__(self, state, parent=None, action=None):
-        self.state = state; self.parent = parent; self.action = action
-        self.children = []
-        self.wins = 0; self.visits = 0
-        self.untried = list(state.legal_moves())
-
 C = math.sqrt(2)
-
-def uct_select(node):
-    return max(node.children, key=lambda c:
-               c.wins / c.visits + C * math.sqrt(math.log(node.visits) / c.visits))
-
-def expand(node):
-    move = node.untried.pop(random.randrange(len(node.untried)))
-    child = Node(node.state.apply(move), parent=node, action=move)
-    node.children.append(child)
-    return child
-
-def simulate(state):
-    while not state.is_terminal():
-        state = state.apply(random.choice(list(state.legal_moves())))
-    return state.reward()                            # +1 / -1 / 0 from current player's POV
-
-def backprop(node, reward):
-    while node is not None:
-        node.visits += 1
-        node.wins += reward
-        reward = -reward                             # alternate POV up the tree
-        node = node.parent
 
 def mcts(root_state, iterations):
     root = Node(root_state)
     for _ in range(iterations):
         node = root
-        # Selection
-        while not node.untried and node.children:
-            node = uct_select(node)
-        # Expansion
-        if node.untried:
+        while not node.untried and node.children:                # 1. Selection (UCB)
+            node = max(node.children, key=lambda c:
+                       c.wins / c.visits + C * math.sqrt(math.log(node.visits) / c.visits))
+        if node.untried:                                          # 2. Expansion
             node = expand(node)
-        # Simulation
-        reward = simulate(node.state)
-        # Backprop
-        backprop(node, reward)
-    return max(root.children, key=lambda c: c.visits).action
+        reward = rollout(node.state)                              # 3. Simulation
+        backprop(node, reward)                                    # 4. Backprop
+    return max(root.children, key=lambda c: c.visits).action      # most-visited at root
 ```
+
+| Helper | Role |
+|---|---|
+| `Node` | Holds `state, parent, children, wins, visits, untried` (list of moves) |
+| `uct_select(node)` | Max over children of `Q + C·√(ln N / n)` |
+| `expand(node)` | Pop from `untried`, create + attach child |
+| `rollout(state)` | Random play to terminal; return reward from POV |
+| `backprop(node, r)` | Walk to root, increment `visits`, accumulate `wins`, **flip sign** each level |
+| Move selection | **Max visits** (more robust than max Q) |
+
+> AlphaZero-style **PUCT**: replace the UCB term with `Q + c · P(s, a) · √N / (1 + N(s, a))` where `P` comes from a policy net; replace random rollout with a **value net** evaluation at the leaf.
 
 #### Selection variants beyond UCB1
 

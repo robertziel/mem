@@ -29,57 +29,31 @@ def find_centroid(root, parent, size, removed):
             return u
 ```
 
-#### Standard template (count paths of length K)
+#### Standard template — solve loop (count paths of length K)
 
 ```python
-def centroid_decomp(adj, n, K):
-    size    = [0] * n
-    removed = [False] * n
-    answer  = 0
-
-    def calc_size(u, p):
-        size[u] = 1
-        for v in adj[u]:
-            if v != p and not removed[v]:
-                calc_size(v, u); size[u] += size[v]
-
-    def find_cent(u, p, tree_size):
-        for v in adj[u]:
-            if v != p and not removed[v] and size[v] > tree_size // 2:
-                return find_cent(v, u, tree_size)
-        return u
-
-    def get_dists(u, p, d, out):
-        out.append(d)
-        for v in adj[u]:
-            if v != p and not removed[v]:
-                get_dists(v, u, d + 1, out)
-
-    def solve(u):
-        nonlocal answer
-        calc_size(u, -1)
-        c = find_cent(u, -1, size[u])
-        # collect distances from c, per subtree, to count valid pairs
-        seen = [0] * (size[c] + 1); seen[0] = 1       # path to centroid itself
-        for v in adj[c]:
-            if removed[v]: continue
-            sub = []
-            get_dists(v, c, 1, sub)
-            for d in sub:
-                if 0 <= K - d < len(seen):
-                    answer += seen[K - d]
-            for d in sub:
-                if d <= K: seen[d] += 1
-        removed[c] = True
-        for v in adj[c]:
-            if not removed[v]:
-                solve(v)
-
-    solve(0)
-    return answer
+def solve(u):
+    calc_size(u, -1)                                  # subtree sizes in current piece
+    c = find_centroid(u, size[u])                     # node where every child subtree ≤ size/2
+    seen = {0: 1}                                     # paths-to-centroid distances seen so far
+    for v in children_of(c):
+        sub = []; collect_distances(v, 1, sub)        # distances from c through v
+        for d in sub:
+            answer += seen.get(K - d, 0)              # match against previously-processed subtrees
+        for d in sub:
+            seen[d] = seen.get(d, 0) + 1              # add this subtree's distances afterward
+    removed[c] = True
+    for v in children_of(c):
+        solve(v)                                       # recurse into each piece
 ```
 
-> The crucial trick: **process each subtree's distances against the running count from previously-processed subtrees only**, so you never double-count or count paths that don't go through the centroid.
+| Helper | Role |
+|---|---|
+| `calc_size(u, parent)` | Sizes within the current (un-removed) subgraph |
+| `find_centroid(u, total)` | Walk to a node whose biggest child has size ≤ `total/2` |
+| `collect_distances(v, d, out)` | DFS from `v` (not crossing removed nodes) collecting distances from `c` |
+| **Critical** | Process each subtree's `sub` **against `seen`** then **add to `seen`** — no double-count, paths must cross `c` |
+| Recurse | After marking `c` removed, `solve` each remaining piece independently |
 
 #### Centroid tree (precompute the hierarchy)
 

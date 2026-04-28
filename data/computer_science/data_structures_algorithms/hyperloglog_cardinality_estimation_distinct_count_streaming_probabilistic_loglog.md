@@ -15,54 +15,36 @@
 
 > **Intuition:** if you've seen `n` distinct uniformly hashed items, the maximum number of leading zeros in any of their hashes is ≈ `log₂ n`. Distribute across `m` buckets → cancel variance via harmonic mean.
 
-#### Implementation (HLL with bias correction)
+#### Implementation — core operations
 
 ```python
-import math, hashlib, struct
+# m = 2^p registers; α ≈ 0.7213 / (1 + 1.079/m); ~12 KB for p=14
 
-class HyperLogLog:
-    def __init__(self, p=14):                         # m = 2^p, default p=14 → ~12 KB
-        self.p = p
-        self.m = 1 << p
-        self.M = bytearray(self.m)                    # registers (≤ 64 fits in 6 bits)
-        if p == 4:    self.alpha = 0.673
-        elif p == 5:  self.alpha = 0.697
-        elif p == 6:  self.alpha = 0.709
-        else:         self.alpha = 0.7213 / (1 + 1.079 / self.m)
+def add(M, p, x):
+    h = hash_64bit(x)
+    j = h >> (64 - p)                                 # top p bits → bucket
+    rho = leading_zeros(h << p, width=64 - p) + 1     # +1 in remaining bits
+    if rho > M[j]: M[j] = rho
 
-    def _hash(self, x):
-        h = hashlib.sha1(repr(x).encode()).digest()[:8]
-        return struct.unpack(">Q", h)[0]              # 64-bit unsigned
+def count(M, m, alpha):
+    Z = sum(2.0 ** -r for r in M)
+    E = alpha * m * m / Z
+    if E <= 2.5 * m:                                  # small-range correction
+        zeros = sum(1 for r in M if r == 0)
+        if zeros: E = m * math.log(m / zeros)
+    return E
 
-    def add(self, x):
-        h = self._hash(x)
-        j = h >> (64 - self.p)                        # top p bits = bucket
-        w = ((h << self.p) & ((1 << 64) - 1)) | (1 << (self.p - 1))
-        # leading-zeros count + 1 in the remaining 64−p bits
-        if w == 0: rho = 64 - self.p + 1
-        else:
-            rho = 1
-            while not (w & (1 << 63)):
-                rho += 1; w <<= 1
-        if rho > self.M[j]: self.M[j] = rho
-
-    def count(self):
-        Z = sum(2.0 ** (-r) for r in self.M)
-        E = self.alpha * self.m * self.m / Z
-
-        # Small-range correction (linear counting)
-        if E <= 2.5 * self.m:
-            zeros = self.M.count(0)
-            if zeros != 0:
-                E = self.m * math.log(self.m / zeros)
-        # Large-range correction (rare, only relevant for ~32-bit hashes)
-        return E
-
-    def merge(self, other):
-        assert self.p == other.p
-        for i in range(self.m):
-            if other.M[i] > self.M[i]: self.M[i] = other.M[i]
+def merge(M_a, M_b):                                  # max per register — mergeable
+    return [max(a, b) for a, b in zip(M_a, M_b)]
 ```
+
+| Helper | Role |
+|---|---|
+| `hash_64bit(x)` | Strong uniform hash (SHA-1 / xxHash / MurmurHash3); 64-bit avoids large-range correction |
+| `leading_zeros(...)` | Count of leading 0 bits in the 64-`p` low bits |
+| `α` | Bias-correction constant (table for `p ∈ {4, 5, 6}`; formula otherwise) |
+| Small-range correction | When `E ≤ 2.5m`, switch to linear counting based on empty registers |
+| Merge | Element-wise max — distributed-friendly |
 
 #### Parameter trade-offs
 

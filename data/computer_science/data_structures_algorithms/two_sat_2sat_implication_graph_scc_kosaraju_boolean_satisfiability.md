@@ -32,72 +32,31 @@ For "exactly one of a, b": `(a ∨ b) ∧ (¬a ∨ ¬b)` (XOR).
 - `2i + 1` = literal `¬xᵢ` (false)
 - "Negate literal `u`" = `u ^ 1`
 
-#### Implementation (Kosaraju-based)
+#### Implementation — core skeleton
 
 ```python
-from collections import defaultdict
+# Literal encoding: x_i → 2i, ¬x_i → 2i+1; negate with XOR 1.
+def add_clause(graph, a, na, b, nb):                  # (a ∨ b)
+    la = 2*a + (1 if na else 0)
+    lb = 2*b + (1 if nb else 0)
+    graph[la ^ 1].append(lb)                          # ¬a ⇒ b
+    graph[lb ^ 1].append(la)                          # ¬b ⇒ a
 
-class TwoSAT:
-    def __init__(self, n):
-        self.n = n
-        self.graph = defaultdict(list)                # implication graph
-        self.rev   = defaultdict(list)
-
-    def _add_imp(self, u, v):
-        self.graph[u].append(v)
-        self.rev[v].append(u)
-
-    def add_clause(self, a, na, b, nb):
-        """Clause (a ∨ b). a, b ∈ [0, N); na/nb = True if literal is *negated*."""
-        la = 2*a + (1 if na else 0)                   # literal index
-        lb = 2*b + (1 if nb else 0)
-        self._add_imp(la ^ 1, lb)                     # ¬a ⇒ b
-        self._add_imp(lb ^ 1, la)                     # ¬b ⇒ a
-
-    def force_true(self, a):
-        la = 2*a; self._add_imp(la ^ 1, la)           # ¬a ⇒ a
-
-    def force_false(self, a):
-        la = 2*a; self._add_imp(la, la ^ 1)           # a ⇒ ¬a
-
-    def solve(self):
-        N2 = 2 * self.n
-        order = []; visited = [False] * N2
-        def dfs1(u):
-            stack = [(u, 0)]
-            while stack:
-                v, i = stack.pop()
-                if i == 0:
-                    if visited[v]: continue
-                    visited[v] = True
-                if i < len(self.graph[v]):
-                    stack.append((v, i + 1))
-                    w = self.graph[v][i]
-                    if not visited[w]: stack.append((w, 0))
-                else:
-                    order.append(v)
-        for u in range(N2):
-            if not visited[u]: dfs1(u)
-        comp = [-1] * N2
-        def dfs2(u, c):
-            stack = [u]
-            while stack:
-                v = stack.pop()
-                if comp[v] != -1: continue
-                comp[v] = c
-                for w in self.rev[v]:
-                    if comp[w] == -1: stack.append(w)
-        cid = 0
-        for u in reversed(order):
-            if comp[u] == -1:
-                dfs2(u, cid); cid += 1
-        # check + assignment
-        assignment = [False] * self.n
-        for i in range(self.n):
-            if comp[2*i] == comp[2*i + 1]: return None     # UNSAT
-            assignment[i] = comp[2*i] > comp[2*i + 1]      # true if x's component is later
-        return assignment
+def two_sat_solve(graph, n):
+    comp = scc(graph)                                 # see SCC memo (Kosaraju / Tarjan)
+    for i in range(n):
+        if comp[2*i] == comp[2*i + 1]: return None    # UNSAT — x_i and ¬x_i collide
+    return [comp[2*i] > comp[2*i + 1] for i in range(n)]  # later-SCC literal is true
 ```
+
+| Helper | Role |
+|---|---|
+| `add_clause(a, na, b, nb)` | Encode `(a ∨ b)` as two implications in the graph |
+| `force_true(a)` | Equivalent to `(a ∨ a)` → `¬a ⇒ a` |
+| `force_false(a)` | Equivalent to `(¬a ∨ ¬a)` → `a ⇒ ¬a` |
+| `scc(graph)` | Returns SCC id per node; Kosaraju yields **reverse topological order** of SCCs |
+| Check | `x_i` and `¬x_i` in same SCC → UNSAT |
+| Assignment | Pick the literal whose SCC id is **larger** (later in reverse-topo) |
 
 > The **assignment rule**: in **reverse topological order** of SCCs, assign `xᵢ = true` if `comp[xᵢ] > comp[¬xᵢ]` (Kosaraju's `cid` is reverse-topo, since DFS-2 starts from highest `order`).
 

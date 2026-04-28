@@ -23,67 +23,29 @@
 | **Network simplex** | LP simplex on flow LP | Exponential worst, fast in practice | Used in real OR solvers |
 | **Capacity scaling MCMF** | Scale capacities by powers of 2 | O((E log U)·MCMF subroutine) | Better for huge capacities |
 
-#### MCMF with SPFA (canonical)
+#### MCMF with SPFA — core loop
 
 ```python
-from collections import deque, defaultdict
-INF = float('inf')
-
-class MCMF:
-    def __init__(self, n):
-        self.n = n
-        self.adj = defaultdict(list)                  # adj[u] = list of edge indices
-        self.edges = []                               # (to, cap, cost, rev_index)
-
-    def add_edge(self, u, v, cap, cost):
-        self.adj[u].append(len(self.edges)); self.edges.append([v, cap, cost, len(self.edges) + 1])
-        self.adj[v].append(len(self.edges)); self.edges.append([u, 0, -cost, len(self.edges) - 1])
-
-    def spfa(self, s, t):
-        dist = [INF] * self.n; dist[s] = 0
-        in_q = [False] * self.n
-        prev_edge = [-1] * self.n
-        q = deque([s]); in_q[s] = True
-        while q:
-            u = q.popleft(); in_q[u] = False
-            for eid in self.adj[u]:
-                v, cap, cost, _ = self.edges[eid]
-                if cap > 0 and dist[u] + cost < dist[v]:
-                    dist[v] = dist[u] + cost
-                    prev_edge[v] = eid
-                    if not in_q[v]:
-                        q.append(v); in_q[v] = True
-        return dist, prev_edge
-
-    def min_cost_flow(self, s, t):
-        flow = cost = 0
-        while True:
-            dist, prev_edge = self.spfa(s, t)
-            if dist[t] == INF: break
-            # bottleneck along the path
-            push = INF; v = t
-            while v != s:
-                eid = prev_edge[v]
-                push = min(push, self.edges[eid][1])
-                v = self.edges[eid ^ 1][0] if False else self.edges[self.edges[eid][3]][0]
-                # safer: walk via edges[eid][3] (rev edge's "to")
-                u = self.edges[self.edges[eid][3]][0]
-                v = u
-            # apply
-            v = t
-            while v != s:
-                eid = prev_edge[v]
-                self.edges[eid][1] -= push
-                self.edges[eid ^ 1][1] += push if (eid ^ 1) < len(self.edges) and self.edges[eid][3] == (eid ^ 1) else 0
-                # cleaner: edges store rev index explicitly — walk that
-                rev = self.edges[eid][3]
-                self.edges[rev][1] += push
-                v = self.edges[rev][0]
-            flow += push; cost += push * dist[t]
-        return flow, cost
+def min_cost_flow(graph, s, t):              # graph: paired forward + reverse edges
+    flow = cost = 0
+    while True:
+        dist, prev_edge = spfa(graph, s)     # cheapest-cost path s→all (handles negative reverse-edge costs)
+        if dist[t] == INF: break
+        push = bottleneck(graph, prev_edge, s, t)   # min residual cap along the path
+        augment(graph, prev_edge, s, t, push)        # subtract on forward, add on reverse
+        flow += push; cost += push * dist[t]
+    return flow, cost
 ```
 
-> Production code uses paired `(u→v)` and `(v→u)` edges with `rev` indices, and the **inner walk** uses `prev_edge` to step back along the augmenting path.
+| Helper | Role |
+|---|---|
+| `add_edge(u, v, cap, cost)` | Add forward edge `(cap, cost)` **and** reverse edge `(0, −cost)`; store mutual `rev` indices |
+| `spfa(graph, s)` | Bellman-Ford queue version — returns `dist[]` + `prev_edge[]` |
+| `bottleneck(...)` | Walk back via `prev_edge`; minimum residual capacity |
+| `augment(...)` | Walk back; subtract on forward, add on reverse |
+| Stop | When `dist[t] == INF` (no augmenting path) |
+
+> **Dijkstra + potentials (Johnson):** after first SPFA, set `h[v] = dist[v]`. Reduced cost `c'(u, v) = c + h[u] − h[v] ≥ 0`. Switch to Dijkstra; update `h[v] += dist[v]` after each augment.
 
 #### Dijkstra + potentials (Johnson's reduction)
 

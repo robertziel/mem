@@ -29,62 +29,35 @@ After running max-flow, the min cut is `(S, T)` where `S` = nodes reachable from
 | ISAP | Distance labels | Same as Dinic | Faster constants |
 | Push-relabel | Local push + relabel | O(V²·√E) | Theoretical best; complex |
 
-#### Edmonds-Karp (clean canonical implementation)
+#### Edmonds-Karp — core loop
 
 ```python
-from collections import deque, defaultdict
+from collections import deque
 
-class MaxFlow:
-    def __init__(self, n):
-        self.n = n
-        self.graph = defaultdict(lambda: defaultdict(int))   # capacities
-
-    def add_edge(self, u, v, cap):
-        self.graph[u][v] += cap                              # add to existing if multi-edge
-        # reverse residual capacity starts at 0 (auto-handled by defaultdict)
-
-    def _bfs(self, s, t, parent):
-        seen = {s}; q = deque([s])
-        while q:
-            u = q.popleft()
-            for v, c in self.graph[u].items():
-                if v not in seen and c > 0:
-                    seen.add(v); parent[v] = u
-                    if v == t: return True
-                    q.append(v)
-        return False
-
-    def max_flow(self, s, t):
-        flow = 0
-        while True:
-            parent = {}
-            if not self._bfs(s, t, parent): break
-            # bottleneck along the augmenting path
-            path_flow = float('inf'); v = t
-            while v != s:
-                u = parent[v]
-                path_flow = min(path_flow, self.graph[u][v])
-                v = u
-            # apply: decrease forward capacities, increase reverse
-            v = t
-            while v != s:
-                u = parent[v]
-                self.graph[u][v] -= path_flow
-                self.graph[v][u] += path_flow
-                v = u
-            flow += path_flow
-        return flow
-
-    def min_cut(self, s):
-        # nodes still reachable from s in residual = S; the rest = T
-        seen = {s}; q = deque([s])
-        while q:
-            u = q.popleft()
-            for v, c in self.graph[u].items():
-                if v not in seen and c > 0:
-                    seen.add(v); q.append(v)
-        return seen
+def max_flow(graph, s, t):                            # graph[u][v] = residual capacity
+    flow = 0
+    while True:
+        parent = bfs_residual(graph, s, t)            # BFS over edges with cap > 0
+        if t not in parent: break                     # no augmenting path → done
+        push = bottleneck(graph, parent, s, t)        # min cap along the path
+        v = t
+        while v != s:
+            u = parent[v]
+            graph[u][v] -= push                       # decrease forward
+            graph[v][u] += push                       # increase reverse residual
+            v = u
+        flow += push
+    return flow
 ```
+
+| Helper | Role |
+|---|---|
+| `add_edge(u, v, cap)` | `graph[u][v] += cap`; reverse residual starts at 0 |
+| `bfs_residual(graph, s, t)` | BFS using only edges with `cap > 0`; returns `parent` dict (so paths can be reconstructed) |
+| `bottleneck(...)` | Walk back via `parent` from `t` to `s`; return `min` residual capacity |
+| `min_cut(s)` | After max-flow: BFS from `s` in residual graph; reachable set = `S`-side of the cut |
+
+> **Why reverse edges matter:** they let the algorithm "cancel" suboptimal flow pushes from earlier rounds. Without them, Ford-Fulkerson can get stuck below the true max flow.
 
 #### Bipartite matching (max-flow specialization)
 

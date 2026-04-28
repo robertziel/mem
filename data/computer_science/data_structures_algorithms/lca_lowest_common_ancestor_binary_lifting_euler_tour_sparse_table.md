@@ -12,63 +12,41 @@
 | Tarjan's offline LCA | O((N + Q) α) | — | Offline batched queries |
 | Heavy-light decomposition | O(N) | O(log² N) | Generalizes to path queries / updates |
 
-#### Binary lifting (the default)
+#### Binary lifting — core skeleton
 
-**Schema:** `up[k][v]` = the 2ᵏ-th ancestor of `v`, or `-1` if it doesn't exist.
+**Schema:** `up[k][v]` = the 2ᵏ-th ancestor of `v`, or `-1` if none.
 
 ```python
-import math
-class LCA:
-    def __init__(self, n, edges, root=0):
-        self.n = n
-        self.LOG = max(1, math.ceil(math.log2(n)))
-        self.up = [[-1] * n for _ in range(self.LOG + 1)]
-        self.depth = [0] * n
-        adj = [[] for _ in range(n)]
-        for u, v in edges:
-            adj[u].append(v); adj[v].append(u)
+# Preprocess: BFS from root to set depth[] and up[0][v] = parent[v]
+# Then fill: up[k][v] = up[k-1][ up[k-1][v] ]   for k = 1..LOG
 
-        # BFS to set depth + immediate parent
-        from collections import deque
-        seen = [False] * n; q = deque([root])
-        seen[root] = True
-        while q:
-            u = q.popleft()
-            for v in adj[u]:
-                if not seen[v]:
-                    seen[v] = True
-                    self.up[0][v] = u
-                    self.depth[v] = self.depth[u] + 1
-                    q.append(v)
+def kth_ancestor(v, k):
+    for i in range(LOG + 1):
+        if k & (1 << i):
+            v = up[i][v]
+            if v == -1: return -1
+    return v
 
-        # Sparse-table fill: up[k][v] = up[k-1][ up[k-1][v] ]
-        for k in range(1, self.LOG + 1):
-            for v in range(n):
-                mid = self.up[k-1][v]
-                self.up[k][v] = self.up[k-1][mid] if mid != -1 else -1
+def lca(u, v):
+    if depth[u] < depth[v]: u, v = v, u
+    u = kth_ancestor(u, depth[u] - depth[v])           # lift to same depth
+    if u == v: return u
+    for k in range(LOG, -1, -1):                        # lift in lockstep
+        if up[k][u] != up[k][v]:
+            u = up[k][u]; v = up[k][v]
+    return up[0][u]
 
-    def kth_ancestor(self, v, k):
-        for i in range(self.LOG + 1):
-            if k & (1 << i):
-                v = self.up[i][v]
-                if v == -1: return -1
-        return v
-
-    def lca(self, u, v):
-        if self.depth[u] < self.depth[v]: u, v = v, u
-        # Step 1: lift u to same depth as v
-        diff = self.depth[u] - self.depth[v]
-        u = self.kth_ancestor(u, diff)
-        if u == v: return u
-        # Step 2: lift both together while their ancestors differ
-        for k in range(self.LOG, -1, -1):
-            if self.up[k][u] != self.up[k][v]:
-                u = self.up[k][u]; v = self.up[k][v]
-        return self.up[0][u]
-
-    def dist(self, u, v):
-        return self.depth[u] + self.depth[v] - 2 * self.depth[self.lca(u, v)]
+def dist(u, v):
+    return depth[u] + depth[v] - 2 * depth[lca(u, v)]
 ```
+
+| Step | Detail |
+|---|---|
+| `LOG` | `⌈log₂ n⌉` — `20` covers n ≤ 10⁶ |
+| Preprocess | BFS / DFS from root to fill `depth[]` and `up[0]` |
+| Sparse-table fill | `up[k][v] = up[k-1][up[k-1][v]]` — O(N log N) |
+| LCA | Lift deeper node to same depth, then lift both in lockstep |
+| Distance | `depth(u) + depth(v) − 2·depth(LCA)` |
 
 **How it works (binary lifting LCA):**
 

@@ -14,63 +14,27 @@
 
 > Key insight: **augment many vertex-disjoint shortest paths per BFS pass** instead of one. Reduces O(V·E) (Edmonds-Karp on capacity-1 bipartite) to **O(E·√V)**.
 
-#### Implementation
+#### Implementation — phase loop
 
 ```python
-from collections import deque, defaultdict
-
-INF = float('inf')
-
-class HopcroftKarp:
-    def __init__(self, U, V):                         # U, V: vertex counts on each side
-        self.U = U; self.V = V
-        self.adj = defaultdict(list)
-        self.pair_u = [-1] * U
-        self.pair_v = [-1] * V
-        self.dist   = [INF] * U
-
-    def add_edge(self, u, v):
-        self.adj[u].append(v)
-
-    def bfs(self):
-        q = deque()
-        for u in range(self.U):
-            if self.pair_u[u] == -1:
-                self.dist[u] = 0; q.append(u)
-            else:
-                self.dist[u] = INF
-        found_aug = False
-        while q:
-            u = q.popleft()
-            for v in self.adj[u]:
-                pu = self.pair_v[v]
-                if pu == -1:
-                    found_aug = True
-                elif self.dist[pu] == INF:
-                    self.dist[pu] = self.dist[u] + 1
-                    q.append(pu)
-        return found_aug
-
-    def dfs(self, u):
-        for v in self.adj[u]:
-            pu = self.pair_v[v]
-            if pu == -1 or (self.dist[pu] == self.dist[u] + 1 and self.dfs(pu)):
-                self.pair_u[u] = v
-                self.pair_v[v] = u
-                return True
-        self.dist[u] = INF                            # dead-end
-        return False
-
-    def max_matching(self):
-        matching = 0
-        while self.bfs():
-            for u in range(self.U):
-                if self.pair_u[u] == -1 and self.dfs(u):
-                    matching += 1
-        return matching
+def max_matching(adj, U, V):                          # bipartite: U left, V right
+    pair_u = [-1] * U; pair_v = [-1] * V
+    matching = 0
+    while bfs_layers(adj, U, pair_u, pair_v):         # build level graph; quit when no aug path
+        for u in range(U):
+            if pair_u[u] == -1 and dfs_aug(u, adj, pair_u, pair_v, dist):
+                matching += 1
+    return matching
 ```
 
-> **`bfs()`** sets `dist[u]` for free U-vertices to layered distances; **`dfs()`** finds vertex-disjoint augmenting paths along strictly increasing layers.
+| Helper | Role |
+|---|---|
+| `bfs_layers(...)` | BFS from all unmatched left-vertices; sets `dist[u]` to the level along alternating-path layers; returns `True` if some augmenting path was found |
+| `dfs_aug(u, ...)` | DFS along strictly-increasing layers; pushes flow on a vertex-disjoint augmenting path |
+| Per-phase | One `bfs_layers` then **multiple** `dfs_aug` (one per free left-vertex) |
+| Termination | When `bfs_layers` finds no augmenting path |
+
+> Why **vertex-disjoint paths per phase** matter: each phase strictly increases the shortest augmenting-path length. After O(√V) phases, the matching is maximum. Total: **O(E · √V)**.
 
 #### Why O(E·√V)
 

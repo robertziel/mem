@@ -107,38 +107,7 @@ def convex_hull(points):
 
 Both run in O(n log n). The sweepline version is simpler if your language has an ordered set; pure-Python uses divide & conquer. Compare squared distances throughout — never call `sqrt` inside the loop.
 
-#### Sweepline pattern
-
-**Idea:** sort events (segment endpoints, polygon edges, etc.) by `x`; sweep a vertical line left to right; maintain a balanced BST / heap of active items keyed by `y`.
-
-| Use | Active set | Event |
-|---|---|---|
-| Find any segment intersection (Bentley-Ottmann) | Segments crossing the sweep line, ordered by y | Endpoint enter / leave / intersection |
-| Skyline problem (silhouette of buildings) | Heights currently active | Building start / end |
-| Closest pair (alt) | Points within `d` of sweep | Add / remove on x-distance |
-| Rectangle union area | Active y-intervals | Rectangle left / right |
-| Number of meeting rooms / overlapping intervals | Currently open intervals | Start / end |
-
-**Skyline problem template:**
-
-```python
-import heapq
-def skyline(buildings):                          # [(L, R, H)]
-    events = []
-    for L, R, H in buildings:
-        events.append((L, -H, R))                # start: negative for max-heap
-        events.append((R, 0, 0))                 # end (sentinel)
-    events.sort()
-    res = []; heap = [(0, float('inf'))]         # (negH, endX)
-    for x, negH, R in events:
-        if negH != 0:
-            heapq.heappush(heap, (negH, R))
-        while heap[0][1] <= x: heapq.heappop(heap)
-        cur = -heap[0][0]
-        if not res or res[-1][1] != cur:
-            res.append([x, cur])
-    return res
-```
+> **Sweepline / event-processing problems** (skyline, segment intersection, rectangle union, meeting rooms) live in their own memo — search "sweepline event processing".
 
 #### Picks's theorem (lattice polygons)
 
@@ -155,8 +124,6 @@ def skyline(buildings):                          # [(L, R, H)]
 | Polygon area | Shoelace |
 | Point inside polygon | Ray casting |
 | Closest pair of points | Divide & conquer (or sweep + sorted set) |
-| Skyline | Sweepline + max-heap |
-| Number of overlapping intervals | Sweepline + counter |
 | Rotate point around origin | `(x cos θ − y sin θ, x sin θ + y cos θ)` |
 | Distance from point to line | `|cross(b−a, p−a)| / |b−a|` |
 | Triangle area | `|cross(b−a, c−a)| / 2` |
@@ -189,7 +156,5 @@ def skyline(buildings):                          # [(L, R, H)]
 | Polygon area (shoelace) | O(n) |
 | Point-in-polygon (ray cast) | O(n) |
 | Closest pair (D&C or sweep) | O(n log n) |
-| Bentley-Ottmann (all segment intersections) | O((n + k) log n), `k` = #intersections |
-| Skyline | O(n log n) |
 
 **Rule of thumb:** **the cross product is the universal primitive** — orientation, intersection, polygon area, and convex hull all rest on it. **Compare squared distances** to avoid `sqrt`. **Andrew's monotone chain** is the easiest convex hull to remember (sort + two passes). For "events along the x-axis" problems (skyline, intervals, rectangles), reach for **sweepline + heap / sorted set**.
