@@ -47,7 +47,23 @@ The tool uses a hierarchical search system to organize notes with directories, s
 
 ## Building and Running
 
-### Installation
+### Using Docker (Recommended)
+The project can be run entirely using Docker. This is the preferred method for consistent environments and avoiding dependency conflicts.
+
+```bash
+# Build the Docker images
+docker-compose build
+
+# Run the application (CLI commands)
+docker-compose run mem
+
+# Start the web server
+docker-compose up -d
+```
+
+### Local Installation (Alternative)
+If you prefer to install locally (not recommended), the standard installation process is:
+
 ```bash
 chmod +x install.sh
 ./install.sh
